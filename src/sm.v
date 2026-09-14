@@ -44,7 +44,7 @@ module protoemu_sm (
 
     wire [2:0] jmp_cond  = pay[7:5];
     wire [7:0] jmp_addr  = {3'b000, pay[4:0]};
-    wire [2:0] wait_src  = pay[6:5];
+    wire [2:0] wait_src  = {1'b0, pay[6:5]};
     wire       wait_pol  = pay[7];
     wire [4:0] wait_idx  = pay[4:0];
     wire [2:0] io_field  = pay[7:5];
@@ -169,6 +169,8 @@ module protoemu_sm (
     endfunction
 
     wire [15:0] mov_val = apply_op(mov_read(mov_src), mov_op);
+    wire [20:0] in_pins_next  = in_shift(isr, isr_cnt, pin_in, in_base, io_count);
+    wire [28:0] out_pins_next = out_shift(pin_out, osr, osr_cnt, io_count);
     wire pull_ok  = is_pull  && (!pp_iff || osre) && (!tx_empty || !pp_block);
     wire pull_stall = is_pull && pp_block && tx_empty && (!pp_iff || osre);
     wire push_ok  = !is_pull && (!pp_iff || (isr_cnt != 5'd0)) && (!rx_full || !pp_block);
@@ -231,7 +233,8 @@ module protoemu_sm (
                             end
                             OP_IN: begin
                                 if (io_field == 3'd0 || io_field == 3'd7) begin
-                                    {isr_cnt, isr} <= in_shift(isr, isr_cnt, pin_in, in_base, io_count);
+                                    isr_cnt <= in_pins_next[20:16];
+                                    isr     <= in_pins_next[15:0];
                                 end else begin
                                     case (io_field)
                                         3'd1: isr <= x;
@@ -248,7 +251,9 @@ module protoemu_sm (
                             OP_OUT: begin
                                 case (io_field)
                                     3'd0: begin
-                                        {osr_cnt, osr, pin_out} <= out_shift(pin_out, osr, osr_cnt, io_count);
+                                        osr_cnt <= out_pins_next[28:24];
+                                        osr     <= out_pins_next[23:8];
+                                        pin_out <= out_pins_next[7:0];
                                     end
                                     3'd1: x <= osr;
                                     3'd2: y <= osr;

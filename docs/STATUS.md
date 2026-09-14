@@ -32,7 +32,7 @@ Checked:
 - SBY `formal/decode.sby` (smtbmc z3) on the field-split identity.
 - Firmware UART TX/RX.
 
-Not checked: routed 8x4 at 20 ns. No IHP PDK, no LibreLane run. Flop SRAM stand-in only. **This phase is not closed.**
+Not checked: routed 8x4 at 20 ns. GitHub `gds` on `7abe6d5` died in Yosys (`{isr_cnt, isr} <= in_shift(...)` lookahead mix). That LHS concat is gone; local `yosys -s sim/synth.ys` elaborates. The action is still `ttihp26b` / `ihp-sg13g2`, not CMOS5L. Flop SRAM stand-in only. **This phase is not closed until a harden finishes.**
 
 ## Phase 3 — protocols as programs
 

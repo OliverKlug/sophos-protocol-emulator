@@ -1,0 +1,12 @@
+[options]
+mode prove
+
+[engines]
+smtbmc z3
+
+[script]
+read -sv decode.sv
+prep -top decode_check
+
+[files]
+decode.sv

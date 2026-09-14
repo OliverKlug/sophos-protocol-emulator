@@ -1,0 +1,23 @@
+{
+  "DESIGN_NAME": "tt_um_klug_protoemu",
+  "VERILOG_FILES": [
+    "dir::project.v",
+    "dir::protoemu_core.v",
+    "dir::sm.v",
+    "dir::fifo4.v",
+    "dir::clkdiv.v",
+    "dir::sram_flop.v"
+  ],
+  "DIE_AREA": "0 0 1724.16 710.64",
+  "FP_DEF_TEMPLATE": "dir::../tt/tech/ihp-sg13g2/def/tt_block_8x4_pgvdd.def",
+  "CLOCK_PERIOD": 20,
+  "CLOCK_PORT": "clk",
+  "PL_TARGET_DENSITY_PCT": 60,
+  "FP_SIZING": "absolute",
+  "VDD_PIN": "VPWR",
+  "GND_PIN": "VGND",
+  "RT_MAX_LAYER": "TopMetal1",
+  "GRT_ALLOW_CONGESTION": 1,
+  "RUN_CTS": 1,
+  "comment_tiles": "8x4 from tt-support-tools tech/ihp-sg13g2/tile_sizes.yaml; template info.yaml comment omits 8x4"
+}

@@ -1,0 +1,12 @@
+analog
+tt_block_1x1_pgvdd.def
+tt_block_1x2_pgvdd.def
+tt_block_2x2_pgvdd.def
+tt_block_3x2_pgvdd.def
+tt_block_3x4_pgvdd.def
+tt_block_4x2_pgvdd.def
+tt_block_4x4_pgvdd.def
+tt_block_5x4_pgvdd.def
+tt_block_6x2_pgvdd.def
+tt_block_6x4_pgvdd.def
+tt_block_8x2_pgvdd.def

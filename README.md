@@ -1,42 +1,50 @@
-![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
+# ProtoEmu
 
-# Tiny Tapeout Verilog Project Template
+Reprogrammable pin machine for the [Jane Street Tiny Tapeout contest](https://blog.janestreet.com/protocol-emulator-asic-competition/) (deadline 2027-01-18). Two identical 16-bit SMs, PIO-style delay/side-set, per-SM clkdiv, capture/replay. UART / SPI / I2C / JTAG / SWD are firmware, not hard IP.
 
-- [Read the documentation for project](docs/info.md)
+Apache-2.0. Tree started from [ttihp-verilog-template](https://github.com/TinyTapeout/ttihp-verilog-template.git). This GitHub remote is a private working copy, not the Tiny Tapeout template.
 
-## What is Tiny Tapeout?
+## What is actually green
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
+See `docs/STATUS.md`. Short version: ISA + firmware + Python/OCaml SAT + Icarus UART 0x55 are checked. A routed CMOS5L 8×4 at 20 ns is not. The CMOS5L tool branch has no 8×4 DEF; that email is sent.
 
-To learn more and get started, visit https://tinytapeout.com.
+## Quick check
 
-## Set up your Verilog project
+```
+./sim/check.sh
+```
 
-1. Add your Verilog files to the `src` folder.
-2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/info.md](docs/info.md) and add a description of your project.
-4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
+Needs Python 3 and Icarus Verilog. On a machine with the local switch:
 
-The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
+```
+eval "$(opam env --switch=ocaml-base-compiler.5.3.0)"
+./sim/check.sh          # also OCaml SAT/UART + SBY decode
+yosys -s sim/synth.ys   # generic cells, not IHP
+```
 
-## Enable GitHub actions to build the results page
+A character leaves `uio[0]`. That is the week-1 gate (Verilog SM). Hardcaml Cyclesim was the preferred path and missed the week-1 window; there will not be a January rewrite of the SM.
 
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
+## Layout
 
-## Resources
+| Path | What |
+|---|---|
+| `ISA.md` | Frozen 16-bit encoding |
+| `src/` | TT wrapper, two SMs, host, flop SRAM, IHP blackbox (not instantiated) |
+| `fw/` | UART TX/RX, SPI 4 modes, I2C, JTAG, SWD, PS/2, USB LS-shaped |
+| `sim/` | Python golden, SAT-on-decode, `check.sh` |
+| `ocaml/` | OCaml ISA + SAT + UART-ops golden (fallback) |
+| `formal/` | SymbiYosys field-split |
+| `host/loader.py` | Nibble stream for the TT RP2040 |
+| `docs/` | Status, host protocol, verify, writeup, 8×4 email, P&R handoff, citations |
 
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
+## Docs
 
-## What next?
+- `docs/STATUS.md` — phase ticks, only what was run
+- `docs/HOST.md` — `ui_in` nibble commands
+- `docs/VERIFY.md` — commands and pass strings
+- `docs/PHASE0_CONSTRAINTS.md` — PDK / tile / pin sheet with cited numbers
+- `docs/WRITEUP.md` — Jane Street-facing writeup (draft)
+- `docs/info.md` — Tiny Tapeout datasheet
+- `docs/EMAIL_8x4.md` — sent mail (CMOS5L has no 8×4 DEF)
 
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+`info.yaml` still says `tiles: "8x4"` because that is the contest post. Do not harden until Jane Street answers.

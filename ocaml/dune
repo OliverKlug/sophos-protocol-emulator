@@ -1,0 +1,3 @@
+(executables
+ (names sat_decode uart_tx)
+ (modules isa sat_decode uart_tx))

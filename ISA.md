@@ -1,0 +1,44 @@
+# ProtoEmu ISA (frozen)
+
+16-bit instruction. PIO shared delay/side-set field. Not a pioasm clone.
+
+```
+[15:13] opcode
+[12:8]  delay/side-set   SIDESET_COUNT=1: [12]=side, [11:8]=delay (0..15)
+[7:0]   payload
+```
+
+`f_sm = f_sys / (INT + FRAC/256)` with INT=0 treated as 1 (every sysclk). Per SM. Not a second clock pipeline.
+
+`{value, oe}` dest is **PINOE**: one OUT/MOV writes `OSR[7:0] -> pin_out` and `OSR[15:8] -> pin_oe` in one beat.
+
+IMEM: 256 x 16 (8-bit PC). SRAM flop model is 1024 x 8: bytes 0..511 IMEM image, 512..1023 capture (128 x 4-byte records). Two SMs are identical instances. JMP target is always payload[4:0] (0..31). Longer jumps are `MOV PC, X`. `jmp(32)` is illegal; bits[7:5] are only the condition.
+
+## Opcodes
+
+| op | name | payload |
+|---|---|---|
+| 000 | JMP | [7:5] cond, [4:0] addr (0..31). cond 0 = always |
+| 001 | WAIT | [7] polarity, [6:5] src (0 pin, 1 irq, 2 jmp_pin), [4:0] index |
+| 010 | IN | [7:5] src, [4:0] bitcount (0 => 16) |
+| 011 | OUT | [7:5] dest, [4:0] bitcount (0 => 16) |
+| 100 | PUSH/PULL | [7] 1=PULL 0=PUSH, [6] ifF/ifE, [5] block |
+| 101 | MOV | [7:5] dest, [4:3] op (0 copy, 1 invert, 2 bitrev), [2:0] src |
+| 110 | IRQ | [7] clr, [6] wait, [2:0] index |
+| 111 | SET | [7:5] dest, [4:0] imm |
+
+JMP cond: 0 always, 1 !X, 2 X--, 3 !Y, 4 Y--, 5 PIN, 6 !OSRE, 7 X!=Y
+
+IN src: 0 PINS, 1 X, 2 Y, 3 NULL, 4 ISR, 5 OSR, 6 STATUS, 7 PININ. PINS/PININ shift `count` consecutive pins from `in_base` (wrap 0..7) left into ISR in one beat.
+
+OUT/MOV dest: 0 PINS, 1 X, 2 Y, 3 PINDIRS, 4 PINOE, 5 PC, 6 ISR, 7 NULL. OUT PINS writes `count` consecutive pins from pin0, LSB of OSR first. Side-set is re-applied after the op and wins on that pin.
+
+MOV src: 0 PINS, 1 X, 2 Y, 3 NULL, 4 STATUS, 5 ISR, 6 OSR, 7 PINOE
+
+SET dest: 0 PINS, 1 X, 2 Y, 3 PINDIRS, 4 IN_BASE, 5 SIDE_PIN
+
+Side-set wins over OUT/SET on the same pin. Side-set fires on the first SM tick of an instruction, including WAIT stall. Delay counts after the op (or after WAIT is met).
+
+NOP is `MOV Y, Y`.
+
+I2C firmware does not put raw data bytes in the TX FIFO. The host pushes `fw/i2c_master.encode_byte()` PINOE words (two per bit: SCL driven 0, then SCL HiZ). That is how stretch and open-drain share `{value, oe}` without a second pipeline.

@@ -1,45 +1,35 @@
 # P&R handoff (Phase 2 / Phase 5)
 
-LibreLane and the IHP PDK are not on this machine. Yosys 0.69 generic synth (`sim/synth.ys`) is the hello-world cell count, not a routed 8x4 and not STA. The October gate is still a LibreLane run when the PDK is on disk. Do not treat the ABC count as a GDS.
+LibreLane and the IHP PDK are not on this machine. Yosys generic synth (`sim/synth.ys`) is the hello-world cell count, not a routed 6×4 and not STA. The silicon gate is the GitHub `gds` job on `@ihp-cmos5l`.
 
 ## Die
 
-From `tt-support-tools` `tech/ihp-sg13g2/tile_sizes.yaml` (read 2026-09-14):
+CMOS5L `tile_sizes.yaml` (cited in `docs/citations/`):
 
 ```
-8x4: "0 0 1724.16 710.64"
+6x4: "0 0 1289.28 710.64"
 ```
 
-`src/user_config.json` sets `DIE_AREA` to the **sg13g2** 8x4 string, `CLOCK_PERIOD` 20 ns. CMOS5L `tile_sizes.yaml` has no 8x4 and no matching DEF (`docs/citations/`, email sent). Do not run LibreLane against this DIE_AREA and call it CMOS5L.
+`src/user_config.json` sets that DIE_AREA, `FP_DEF_TEMPLATE` `tt_block_6x4_pgvdd.def`, `RT_MAX_LAYER: Metal4`. `src/config.json` PDN is Gremlin CMOS5L prior: `FP_PDN_VPITCH` 50.0, `FP_PDN_VWIDTH` 2.1. `CLOCK_PERIOD` 20 ns.
 
-## What to run (when the PDK is on disk)
+`src/user_config.8x4.json` is archive only. Do not harden it.
 
-```
-export PDK=ihp-sg13g2   # or ihp-sg13cmos5l once TT ships it
-./tt/tt_tool.py --create-user-config --ihp
-# LibreLane harden, STA 20 ns
-```
+## What is on the die
 
-SRAM: flop stand-in `protoemu_sram_flop` (1024x8). Blackbox `RM_IHPSG13_1P_1024x8_c2_bm_bist` is in `src/sram_ihp_blackbox.v`. Do not instantiate a second macro. CMOS5L PDN/CTS hold is the known killer.
+One SM (`PROTOEMU_SM1=0`). 32×16 flop IMEM (64 was >8k generic Yosys). Capture 16 records, flop shadows only. No `RM_IHPSG13_1P_1024x8_c2_bm_bist`: CMOS5L `sg13cmos5l_sram` is a symlink to sg13g2 macros that use TopMetal2.
 
-## Area (Yosys 0.69 generic, 2026-09-14)
+`src/sram_flop.v` stays in the tree and is not in the harden file list. `src/sram_ihp_blackbox.v` is unused.
 
-`yosys -s sim/synth.ys`. Memories exploded to flops (`imem`, `cap_*_mem`, `sram_flop`). No IHP liberty, no CTS, no 20 ns proof.
+## Area
 
-| Object | Generic cells | Notes |
-|---|---|---|
-| `tt_um_klug_protoemu` hierarchy | 36902 | includes flop SRAM |
-| `protoemu_sram_flop` | 28997 (8192 DFFE) | stand-in; IHP macro deletes this |
-| `protoemu_sm` (one instance) | 2134 | two copies in the core |
-| `protoemu_clkdiv` | 351 | per SM |
-| `protoemu_fifo4` | 255 | four of them |
+`yosys -s sim/synth.ys` (2026-09-15): **7830** generic cells, no `sram_flop` in the hierarchy. Not STA.
 
-Cut order if GPL dies: drop SM1, then capture depth, then IMEM depth. Never cut WAIT / OE / side-set / clkdiv. The flop SRAM is the cell bomb; instantiating `RM_IHPSG13_1P_1024x8_c2_bm_bist` is the first real area cut, not a second macro.
+Cut order if GPL dies: IMEM 32, then capture 8, then stop. Hold: density 60→80. Do not switch back to sg13g2.
 
 ## Claimed board rates (not TinyQV 64 MHz)
 
-Close STA at 50 MHz. Claim UART to a few Mbaud, SPI master a few MHz, I2C 100/400 kHz. USB LS only if the pad is clean at 12 MHz.
+Close STA at 50 MHz. Claim UART to a few Mbaud, SPI master a few MHz, I2C 100/400 kHz. USB LS only if the pad is clean at 12 MHz. Board UART stays pad-limited.
 
 ## GLS
 
-`test/tb_uart.v` is the RTL check (Icarus 13.0, PASS UART TX 0x55). Gate-level netlist is the LibreLane `nl/*.nl.v` once hardened. No PDK here, so no GLS run.
+RTL: `test/tb_uart.v` (Icarus, PASS UART TX 0x55). Gate-level: `test/Makefile` GATES=yes must compile `sg13cmos5l_udp.v`. Vector is UART 0x55 via `test/test.py`, not idle `uo_out[0]==0`.

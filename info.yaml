@@ -3,13 +3,12 @@ project:
   title: "ProtoEmu"
   author: "Oliver Klug"
   discord: ""
-  description: "Reprogrammable protocol-emulator pin machine (two identical SMs)"
+  description: "Reprogrammable protocol-emulator pin machine (one SM on this die)"
   language: "Verilog"
-  clock_hz: 12000000
+  clock_hz: 50000000
 
-  # Jane Street contest: 8x4. Template comment lists only up to 8x2;
-  # tt-support-tools ihp-sg13g2 tile_sizes.yaml has 8x4 at 1724.16 x 710.64 um.
-  tiles: "8x4"
+  # CMOS5L legal height-4 is 6x4. 8x4 DEF does not exist on ihp-sg13cmos5l.
+  tiles: "6x4"
 
   top_module: "tt_um_klug_protoemu"
 
@@ -19,7 +18,6 @@ project:
     - "sm.v"
     - "fifo4.v"
     - "clkdiv.v"
-    - "sram_flop.v"
 
 pinout:
   ui[0]: "host_nibble[0]"

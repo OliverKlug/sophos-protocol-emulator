@@ -15,4 +15,6 @@ test/results.xml
 test/gate_level_netlist.v
 ocaml/_build
 formal/decode/
+formal/step/
+sim/lockstep_expect.txt
 *.sby.out

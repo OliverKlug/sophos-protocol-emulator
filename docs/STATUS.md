@@ -6,12 +6,11 @@ As of 2026-09-15. Do not treat a checkbox here as a LibreLane GDS.
 
 Checked:
 
-- Template clone from `ttihp-verilog-template`, top `tt_um_klug_protoemu`, `tiles: "8x4"`.
+- Template clone from `ttihp-verilog-template`, top `tt_um_klug_protoemu`.
 - Email sent to `asic-competition@janestreet.com` (copy in `EMAIL_8x4.md`). Waiting on a reply.
-- CMOS5L tools (branch `ihp-sg13cmos5l`, copied into `docs/citations/`): **no `8x4` key**, **no `tt_block_8x4_pgvdd.def`**. Height-4 DEFs stop at `6x4`. The 8-wide floorplan is `8x2`. The `1724.16 x 710.64` 8x4 number is `ihp-sg13g2` on `main`, a different PDK.
-- Generic Yosys 0.69 hello-world: `yosys -s sim/synth.ys` elaborates. 36902 generic cells with flop SRAM. Not STA. Not IHP.
+- CMOS5L tools: **no `8x4` key**, **no `tt_block_8x4_pgvdd.def`**. Height-4 DEFs stop at `6x4`. Live `info.yaml` is `tiles: "6x4"`.
 
-Not checked: Jane Street accepting 8x4 on CMOS5L. No open March 2027 TT CMOS5L row.
+Not checked: Jane Street shipping an 8×4 CMOS5L DEF.
 
 ## Phase 1 — UART out of a pin
 
@@ -23,25 +22,26 @@ Checked (week-1 fallback, not Hardcaml Cyclesim):
 
 Not checked: Hardcaml Cyclesim of an SM. That rewrite is off the table.
 
-## Phase 2 — ISA freeze + first P&R
+## Phase 2 — CMOS5L 6×4 harden and opcode formal
 
-Checked:
+Local, not a silicon tick:
 
-- `ISA.md` 16-bit pack, clkdiv, PINOE, JMP 0..31.
-- Python + OCaml 65536-word encode/decode bijection.
-- SBY `formal/decode.sby` (smtbmc z3) on the field-split identity.
-- Firmware UART TX/RX.
+- Area cut: 32×16 IMEM (64 was >8k generic Yosys), SM1 generate-off, no `u_sram`, capture depth 16, RX0 pop on peek-10.
+- Golden STATUS `{tx_empty, rx_full, osre}`, PC wrap 31.
+- `formal/step.sby` + `sim/lockstep.py` / `test/tb_sm_lockstep.v` (8×8×32, delay 0/1/15).
+- Floor: `tiles: "6x4"`, DIE_AREA `0 0 1289.28 710.64`, `RT_MAX_LAYER: Metal4`, PDN 50/2.1, action `@ihp-cmos5l` / `ihp-sg13cmos5l`.
+- GL Makefile includes `sg13cmos5l_udp.v`. Vector is UART 0x55.
 
-Not checked: routed 8x4 at 20 ns. GitHub `gds` on `7abe6d5` died in Yosys (`{isr_cnt, isr} <= in_shift(...)` lookahead mix). That LHS concat is gone; local `yosys -s sim/synth.ys` elaborates. The action is still `ttihp26b` / `ihp-sg13g2`, not CMOS5L. Flop SRAM stand-in only. **This phase is not closed until a harden finishes.**
+**Not ticked.** Phase 2 stays open until the CMOS5L `gds` job is green and UART GLS passes. Viewer/Pages is not a silicon exit.
 
 ## Phase 3 — protocols as programs
 
 Checked in Python golden:
 
-- Two identical SM instances.
 - SPI master modes 0–3 × 8/16 MOSI bits.
 - I2C START, `WAIT SCL=1` stretch, NAK stall, never drive SDA high.
 - JTAG / SWD / PS/2 / USB LS-shaped programs assemble.
+- Two-SM golden path still exists (`Core(sm1=True)`). It is not on this die.
 
 Not checked: FT232 UART, W25Q JEDEC, stretching I2C slave, OpenOCD IDCODE. No board.
 
@@ -51,14 +51,14 @@ Checked:
 
 - UART TX capture → RX replay (host bit-reverses the left-shifted ISR).
 - Capture expand keeps start+8 data.
-- Halted SMs: pin changes move capture wptr only.
+- Halted SM0: pin changes move capture wptr only.
 - Icarus peek mux (PC).
 
-Not checked: RTL capture SRAM dump vs golden lockstep on the host nibble.
+Not checked: RTL capture dump vs golden lockstep on the host nibble.
 
 ## Phase 5 — FPGA / GLS / STA
 
-Not checked. No FPGA, no Verilator, no LibreLane GLS, no 20 ns proof.
+Not checked. No FPGA, no Verilator, no LibreLane GLS on this machine, no 20 ns proof.
 
 ## Phase 6 — stretch
 

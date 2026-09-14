@@ -1,6 +1,5 @@
-# Generic-cell synth. Not LibreLane/IHP. Area is a Yosys ABC count, not a routed 8x4.
-# Phase 0 / October hello-world: proves the tree elaborates. STA 20 ns is LibreLane.
-read_verilog -sv src/project.v src/protoemu_core.v src/sm.v src/fifo4.v src/clkdiv.v src/sram_flop.v
+# Generic-cell synth. Not LibreLane/IHP. Area is a Yosys ABC count, not a routed 6x4.
+read_verilog -sv src/project.v src/protoemu_core.v src/sm.v src/fifo4.v src/clkdiv.v
 hierarchy -check -top tt_um_klug_protoemu
 proc
 opt

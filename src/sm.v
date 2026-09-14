@@ -27,7 +27,11 @@ module protoemu_sm (
     output reg         tx_pop,
     output reg  [15:0] rx_data,
     output reg         rx_push,
-    input  wire        rx_full
+    input  wire        rx_full,
+    output reg  [3:0]  delay_cnt,
+    output reg         side_done,
+    output reg  [2:0]  side_pin,
+    output reg  [2:0]  in_base
 );
     wire [2:0] op    = instr[15:13];
     wire       side  = instr[12];
@@ -37,10 +41,7 @@ module protoemu_sm (
     localparam OP_JMP = 3'd0, OP_WAIT = 3'd1, OP_IN = 3'd2, OP_OUT = 3'd3;
     localparam OP_PP  = 3'd4, OP_MOV  = 3'd5, OP_IRQ = 3'd6, OP_SET = 3'd7;
 
-    reg [3:0] delay_cnt;
-    reg       side_done;
-    reg [2:0] in_base;
-    reg [2:0] side_pin;
+    reg [7:0] pin_nxt;
 
     wire [2:0] jmp_cond  = pay[7:5];
     wire [7:0] jmp_addr  = {3'b000, pay[4:0]};
@@ -93,34 +94,29 @@ module protoemu_sm (
         end
     endfunction
 
-    function [15:0] mov_read;
-        input [2:0] s;
-        begin
-            case (s)
-                3'd0: mov_read = {8'd0, pin_in};
-                3'd1: mov_read = x;
-                3'd2: mov_read = y;
-                3'd3: mov_read = 16'd0;
-                3'd4: mov_read = {13'd0, tx_empty, rx_full, osre};
-                3'd5: mov_read = isr;
-                3'd6: mov_read = osr;
-                default: mov_read = {pin_oe, pin_out};
-            endcase
-        end
-    endfunction
-
-    function [15:0] apply_op;
-        input [15:0] v;
-        input [1:0] o;
-        begin
-            case (o)
-                2'd1: apply_op = ~v;
-                2'd2: apply_op = {v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],
-                                  v[8],v[9],v[10],v[11],v[12],v[13],v[14],v[15]};
-                default: apply_op = v;
-            endcase
-        end
-    endfunction
+    // Combo, not a function: Icarus 13 leaves function-of-regs as X.
+    reg [15:0] mov_raw;
+    reg [15:0] mov_val;
+    always @* begin
+        case (mov_src)
+            3'd0: mov_raw = {8'd0, pin_in};
+            3'd1: mov_raw = x;
+            3'd2: mov_raw = y;
+            3'd3: mov_raw = 16'd0;
+            3'd4: mov_raw = {13'd0, tx_empty, rx_full, osre};
+            3'd5: mov_raw = isr;
+            3'd6: mov_raw = osr;
+            default: mov_raw = {pin_oe, pin_out};
+        endcase
+        case (mov_op)
+            2'd1: mov_val = ~mov_raw;
+            2'd2: mov_val = {mov_raw[0],mov_raw[1],mov_raw[2],mov_raw[3],
+                             mov_raw[4],mov_raw[5],mov_raw[6],mov_raw[7],
+                             mov_raw[8],mov_raw[9],mov_raw[10],mov_raw[11],
+                             mov_raw[12],mov_raw[13],mov_raw[14],mov_raw[15]};
+            default: mov_val = mov_raw;
+        endcase
+    end
 
     function [20:0] in_shift;
         input [15:0] old_isr;
@@ -168,7 +164,6 @@ module protoemu_sm (
         end
     endfunction
 
-    wire [15:0] mov_val = apply_op(mov_read(mov_src), mov_op);
     wire [20:0] in_pins_next  = in_shift(isr, isr_cnt, pin_in, in_base, io_count);
     wire [28:0] out_pins_next = out_shift(pin_out, osr, osr_cnt, io_count);
     wire pull_ok  = is_pull  && (!pp_iff || osre) && (!tx_empty || !pp_block);
@@ -216,6 +211,7 @@ module protoemu_sm (
                 if (delay_cnt != 4'd0) begin
                     delay_cnt <= delay_cnt - 4'd1;
                 end else begin
+                    pin_nxt = pin_out;
                     if (do_exec) begin
                         delay_cnt <= delay;
                         side_done <= 1'b0;
@@ -253,13 +249,13 @@ module protoemu_sm (
                                     3'd0: begin
                                         osr_cnt <= out_pins_next[28:24];
                                         osr     <= out_pins_next[23:8];
-                                        pin_out <= out_pins_next[7:0];
+                                        pin_nxt = out_pins_next[7:0];
                                     end
                                     3'd1: x <= osr;
                                     3'd2: y <= osr;
                                     3'd3: pin_oe <= osr[7:0];
                                     3'd4: begin
-                                        pin_out <= osr[7:0];
+                                        pin_nxt = osr[7:0];
                                         pin_oe  <= osr[15:8];
                                         osr_cnt <= 5'd0;
                                     end
@@ -285,12 +281,12 @@ module protoemu_sm (
                             end
                             OP_MOV: begin
                                 case (io_field)
-                                    3'd0: pin_out <= mov_val[7:0];
+                                    3'd0: pin_nxt = mov_val[7:0];
                                     3'd1: x <= mov_val;
                                     3'd2: y <= mov_val;
                                     3'd3: pin_oe <= mov_val[7:0];
                                     3'd4: begin
-                                        pin_out <= mov_val[7:0];
+                                        pin_nxt = mov_val[7:0];
                                         pin_oe  <= mov_val[15:8];
                                     end
                                     3'd5: pc <= mov_val[7:0];
@@ -312,7 +308,7 @@ module protoemu_sm (
                                 case (io_field)
                                     3'd0: begin
                                         for (i = 0; i < 5; i = i + 1)
-                                            pin_out[i] <= pay[i];
+                                            pin_nxt[i] = pay[i];
                                     end
                                     3'd1: x <= {11'd0, pay[4:0]};
                                     3'd2: y <= {11'd0, pay[4:0]};
@@ -331,7 +327,8 @@ module protoemu_sm (
                         side_done <= 1'b1;
                     end
                     if (!side_done)
-                        pin_out[side_pin] <= side;
+                        pin_nxt[side_pin] = side;
+                    pin_out <= pin_nxt;
                 end
             end
         end

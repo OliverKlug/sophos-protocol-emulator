@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections import deque
 from isa import decode_fields
 
+PC_MASK = 31
+IMEM_WORDS = 32
+
 
 class Sm:
     def __init__(self):
@@ -25,6 +28,14 @@ class Sm:
         self.rx = deque()
         self.irq_set = None
         self.irq_clr = None
+        self.tx_pop = False
+        self.rx_push = False
+
+    def status(self) -> int:
+        tx_empty = int(len(self.tx) == 0)
+        rx_full = int(len(self.rx) >= 4)
+        osre = int(self.osr_cnt == 0)
+        return (tx_empty << 2) | (rx_full << 1) | osre
 
     def _wait_bit(self, src, idx, pin_in, irq):
         if src == 0:
@@ -36,6 +47,8 @@ class Sm:
     def step(self, instr: int, pin_in: int, irq: int, tick: bool, start: bool) -> None:
         self.irq_set = None
         self.irq_clr = None
+        self.tx_pop = False
+        self.rx_push = False
         if not start:
             self.pc = 0
             self.delay_cnt = 0
@@ -101,12 +114,12 @@ class Sm:
                 self.x -= 1
             if cond == 4 and self.y:
                 self.y -= 1
-            self.pc = addr if taken else ((self.pc + 1) & 255)
+            self.pc = addr if taken else ((self.pc + 1) & PC_MASK)
             _side_wins()
             return
 
         if op == 1:
-            self.pc = (self.pc + 1) & 255
+            self.pc = (self.pc + 1) & PC_MASK
             _side_wins()
             return
 
@@ -117,10 +130,10 @@ class Sm:
                     self.isr = ((self.isr << 1) | bit) & 0xFFFF
                     self.isr_cnt = min(16, self.isr_cnt + 1)
             else:
-                srcs = {1: self.x, 2: self.y, 3: 0, 4: self.isr, 5: self.osr, 6: 0}
+                srcs = {1: self.x, 2: self.y, 3: 0, 4: self.isr, 5: self.osr, 6: self.status()}
                 self.isr = srcs.get(io, 0) & 0xFFFF
                 self.isr_cnt = count
-            self.pc = (self.pc + 1) & 255
+            self.pc = (self.pc + 1) & PC_MASK
             _side_wins()
             return
 
@@ -142,24 +155,32 @@ class Sm:
                 self.pin_oe = (self.osr >> 8) & 0xFF
                 self.osr_cnt = 0
             elif io == 5:
-                self.pc = self.osr & 255
+                self.pc = self.osr & PC_MASK
                 _side_wins()
                 return
             elif io == 6:
                 self.isr = self.osr
-            self.pc = (self.pc + 1) & 255
+            self.pc = (self.pc + 1) & PC_MASK
             _side_wins()
             return
 
         if op == 4:
-            if is_pull and self.tx and ((not pp_iff) or osre):
-                self.osr = self.tx.popleft() & 0xFFFF
+            # Match sm.v: non-block PULL/PUSH still pulse when the FIFO is empty/full.
+            pull_ok = is_pull and ((not pp_iff) or osre) and (len(self.tx) > 0 or not pp_block)
+            push_ok = (not is_pull) and ((not pp_iff) or self.isr_cnt != 0) and (
+                len(self.rx) < 4 or not pp_block
+            )
+            if pull_ok:
+                self.osr = (self.tx.popleft() if self.tx else 0) & 0xFFFF
                 self.osr_cnt = 16
-            elif (not is_pull) and ((not pp_iff) or self.isr_cnt) and len(self.rx) < 4:
-                self.rx.append(self.isr)
+                self.tx_pop = True
+            elif push_ok:
+                if len(self.rx) < 4:
+                    self.rx.append(self.isr)
                 self.isr = 0
                 self.isr_cnt = 0
-            self.pc = (self.pc + 1) & 255
+                self.rx_push = True
+            self.pc = (self.pc + 1) & PC_MASK
             _side_wins()
             return
 
@@ -169,7 +190,7 @@ class Sm:
                 1: self.x,
                 2: self.y,
                 3: 0,
-                4: 0,
+                4: self.status(),
                 5: self.isr,
                 6: self.osr,
                 7: (self.pin_oe << 8) | self.pin_out,
@@ -193,12 +214,12 @@ class Sm:
                 self.pin_out = val & 0xFF
                 self.pin_oe = (val >> 8) & 0xFF
             elif dest == 5:
-                self.pc = val & 255
+                self.pc = val & PC_MASK
                 _side_wins()
                 return
             elif dest == 6:
                 self.isr = val
-            self.pc = (self.pc + 1) & 255
+            self.pc = (self.pc + 1) & PC_MASK
             _side_wins()
             return
 
@@ -208,7 +229,7 @@ class Sm:
                 self.irq_clr = idx
             else:
                 self.irq_set = idx
-            self.pc = (self.pc + 1) & 255
+            self.pc = (self.pc + 1) & PC_MASK
             _side_wins()
             return
 
@@ -226,15 +247,15 @@ class Sm:
             self.in_base = imm & 7
         elif dest == 5:
             self.side_pin = imm & 7
-        self.pc = (self.pc + 1) & 255
+        self.pc = (self.pc + 1) & PC_MASK
         _side_wins()
 
 
 class Core:
-    def __init__(self):
-        self.imem = [0] * 256
+    def __init__(self, sm1: bool = False):
+        self.imem = [0] * IMEM_WORDS
         self.sm0 = Sm()
-        self.sm1 = Sm()
+        self.sm1 = Sm() if sm1 else None
         self.start0 = False
         self.start1 = False
         self.irq = 0
@@ -250,7 +271,7 @@ class Core:
 
     def load(self, words, base=0):
         for i, w in enumerate(words):
-            self.imem[(base + i) & 255] = w & 0xFFFF
+            self.imem[(base + i) & PC_MASK] = w & 0xFFFF
 
     def tick_div(self, phase, div):
         thresh = (div if div else 1) * 256
@@ -261,25 +282,30 @@ class Core:
 
     def step(self):
         self.phase0, t0 = self.tick_div(self.phase0, self.div0 if self.start0 else 0)
-        self.phase1, t1 = self.tick_div(self.phase1, self.div1 if self.start1 else 0)
+        t1 = False
+        if self.sm1 is not None:
+            self.phase1, t1 = self.tick_div(self.phase1, self.div1 if self.start1 else 0)
         if not self.start0:
             t0 = False
             self.phase0 = 0
-        if not self.start1:
+        if self.sm1 is None or not self.start1:
             t1 = False
             self.phase1 = 0
-        oe = self.sm0.pin_oe | self.sm1.pin_oe
-        driven = (self.sm1.pin_out & self.sm1.pin_oe) | (self.sm0.pin_out & self.sm0.pin_oe & ~self.sm1.pin_oe)
+        oe1 = 0 if self.sm1 is None else self.sm1.pin_oe
+        out1 = 0 if self.sm1 is None else self.sm1.pin_out
+        oe = self.sm0.pin_oe | oe1
+        driven = (out1 & oe1) | (self.sm0.pin_out & self.sm0.pin_oe & ~oe1)
         resolved = driven | (self.uio_in & ~oe)
-        self.sm0.step(self.imem[self.sm0.pc], resolved, self.irq, t0, self.start0)
-        self.sm1.step(self.imem[self.sm1.pc], resolved, self.irq, t1, self.start1)
+        self.sm0.step(self.imem[self.sm0.pc & PC_MASK], resolved, self.irq, t0, self.start0)
+        if self.sm1 is not None:
+            self.sm1.step(self.imem[self.sm1.pc & PC_MASK], resolved, self.irq, t1, self.start1)
         if self.sm0.irq_set is not None:
             self.irq |= 1 << self.sm0.irq_set
         if self.sm0.irq_clr is not None:
             self.irq &= ~(1 << self.sm0.irq_clr)
-        if self.sm1.irq_set is not None:
+        if self.sm1 is not None and self.sm1.irq_set is not None:
             self.irq |= 1 << self.sm1.irq_set
-        if self.sm1.irq_clr is not None:
+        if self.sm1 is not None and self.sm1.irq_clr is not None:
             self.irq &= ~(1 << self.sm1.irq_clr)
         if self.cap_en:
             pins = driven | (self.uio_in & ~oe)

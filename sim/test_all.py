@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "sim"))
 sys.path.insert(0, str(ROOT / "fw"))
 
-from golden import Core  # noqa: E402
+from golden import Core, Sm  # noqa: E402
 from isa import decode_fields, encode, inn, jmp, out, sett, wait_pin  # noqa: E402
 from sat_decode import prove_decode  # noqa: E402
 import i2c_master  # noqa: E402
@@ -271,7 +271,10 @@ def test_pinoe_one_beat() -> None:
 
 
 def test_two_identical_sms() -> None:
-    c = Core()
+    # Die is SM1-off. Keep the golden two-SM path, do not claim silicon.
+    c = Core(sm1=True)
+    if c.sm1 is None:
+        return
     c.load(uart_tx.program())
     c.sm1.tx.append(0x01)
     c.start1 = True
@@ -310,7 +313,7 @@ def test_constrained_random(n: int = 200, seed: int = 1) -> None:
     for _ in range(n):
         c.uio_in = rng.randrange(256)
         c.step()
-        if not 0 <= c.sm0.pc <= 255:
+        if not 0 <= c.sm0.pc <= 31:
             raise AssertionError("pc")
         if not 0 <= c.sm0.pin_out <= 255:
             raise AssertionError("pin")
@@ -336,11 +339,11 @@ def test_capture_purity() -> None:
     c = Core()
     c.load([encode(5, (2 << 5) | 2)] * 4)
     c.cap_en = True
-    snap = (c.sm0.pc, c.sm0.x, c.sm0.y, c.sm0.isr, c.sm0.osr, c.sm1.pc, c.sm1.x)
+    snap = (c.sm0.pc, c.sm0.x, c.sm0.y, c.sm0.isr, c.sm0.osr)
     for pins in range(256):
         c.uio_in = pins
         c.step()
-        now = (c.sm0.pc, c.sm0.x, c.sm0.y, c.sm0.isr, c.sm0.osr, c.sm1.pc, c.sm1.x)
+        now = (c.sm0.pc, c.sm0.x, c.sm0.y, c.sm0.isr, c.sm0.osr)
         if now != snap:
             raise AssertionError(f"halted capture mutated SM state {now}")
     if len(c.capture) < 2:
@@ -367,6 +370,17 @@ def test_uart_tb_words() -> None:
     ]
     if words != want:
         raise AssertionError(f"uart_tx drifted from Icarus TB: {words}")
+
+
+def test_status_word() -> None:
+    s = Sm()
+    if s.status() != 0b101:
+        raise AssertionError(f"idle STATUS {s.status():#b} != 0b101")
+    s.tx.append(1)
+    s.osr_cnt = 3
+    s.rx.extend([0, 0, 0, 0])
+    if s.status() != 0b010:
+        raise AssertionError(f"busy STATUS {s.status():#b} != 0b010")
 
 
 def test_one_cycle_nop() -> None:
@@ -406,6 +420,7 @@ def main() -> None:
     test_jmp_page()
     test_capture_purity()
     test_uart_tb_words()
+    test_status_word()
     test_one_cycle_nop()
     print("golden+SAT: UART TX/RX replay 0xB5, SPI 4 modes x 8/16, I2C stretch/NAK,")
     print("WAIT stall, side-set, clkdiv stretch, capture purity, SAT bijection OK")

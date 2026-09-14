@@ -12,7 +12,7 @@
 
 `{value, oe}` dest is **PINOE**: one OUT/MOV writes `OSR[7:0] -> pin_out` and `OSR[15:8] -> pin_oe` in one beat.
 
-IMEM: 256 x 16 (8-bit PC). SRAM flop model is 1024 x 8: bytes 0..511 IMEM image, 512..1023 capture (128 x 4-byte records). Two SMs are identical instances. JMP target is always payload[4:0] (0..31). Longer jumps are `MOV PC, X`. `jmp(32)` is illegal; bits[7:5] are only the condition.
+IMEM: 32 x 16 flop. Host and fetch index are 5 bits. JMP target is still payload[4:0] (0..31). Longer jumps are `MOV PC, X`. `jmp(32)` is illegal; bits[7:5] are only the condition. This die instantiates one SM (`PROTOEMU_SM1=0`). Capture is 16 shadow records, no IHP SRAM macro.
 
 ## Opcodes
 

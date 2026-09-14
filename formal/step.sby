@@ -1,0 +1,15 @@
+[options]
+mode prove
+depth 4
+
+[engines]
+smtbmc z3
+
+[script]
+read -sv ../src/sm.v
+read -sv step.sv
+prep -top step_check
+
+[files]
+step.sv
+../src/sm.v

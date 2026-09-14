@@ -1,12 +1,12 @@
 # ProtoEmu
 
-Reprogrammable pin machine for the [Jane Street Tiny Tapeout contest](https://blog.janestreet.com/protocol-emulator-asic-competition/) (deadline 2027-01-18). Two identical 16-bit SMs, PIO-style delay/side-set, per-SM clkdiv, capture/replay. UART / SPI / I2C / JTAG / SWD are firmware, not hard IP.
+Reprogrammable pin machine for the [Jane Street Tiny Tapeout contest](https://blog.janestreet.com/protocol-emulator-asic-competition/) (deadline 2027-01-18). One 16-bit SM on a CMOS5L 6×4, PIO-style delay/side-set, per-SM clkdiv, capture/replay. UART / SPI / I2C / JTAG / SWD are firmware, not hard IP.
 
 Apache-2.0. Tree started from [ttihp-verilog-template](https://github.com/TinyTapeout/ttihp-verilog-template.git). This GitHub remote is a private working copy, not the Tiny Tapeout template.
 
 ## What is actually green
 
-See `docs/STATUS.md`. Short version: ISA + firmware + Python/OCaml SAT + Icarus UART 0x55 are checked. A routed CMOS5L 8×4 at 20 ns is not. The CMOS5L tool branch has no 8×4 DEF; that email is sent.
+See `docs/STATUS.md`. Short version: ISA + firmware + Python/OCaml SAT + Icarus UART 0x55 + opcode lockstep are local. A routed CMOS5L 6×4 at 20 ns is the Phase 2 exit and is not ticked until GHA `gds` + UART GLS are green.
 
 ## Quick check
 
@@ -29,11 +29,11 @@ A character leaves `uio[0]`. That is the week-1 gate (Verilog SM). Hardcaml Cycl
 | Path | What |
 |---|---|
 | `ISA.md` | Frozen 16-bit encoding |
-| `src/` | TT wrapper, two SMs, host, flop SRAM, IHP blackbox (not instantiated) |
+| `src/` | TT wrapper, one SM (SM1 generate-off), host, no SRAM on the die |
 | `fw/` | UART TX/RX, SPI 4 modes, I2C, JTAG, SWD, PS/2, USB LS-shaped |
 | `sim/` | Python golden, SAT-on-decode, `check.sh` |
 | `ocaml/` | OCaml ISA + SAT + UART-ops golden (fallback) |
-| `formal/` | SymbiYosys field-split |
+| `formal/` | SymbiYosys field-split + opcode-step |
 | `host/loader.py` | Nibble stream for the TT RP2040 |
 | `docs/` | Status, host protocol, verify, writeup, 8×4 email, P&R handoff, citations |
 
@@ -47,4 +47,4 @@ A character leaves `uio[0]`. That is the week-1 gate (Verilog SM). Hardcaml Cycl
 - `docs/info.md` — Tiny Tapeout datasheet
 - `docs/EMAIL_8x4.md` — sent mail (CMOS5L has no 8×4 DEF)
 
-`info.yaml` still says `tiles: "8x4"` because that is the contest post. Do not harden until Jane Street answers.
+`info.yaml` is `tiles: "6x4"`. Reopen 8×4 only if Jane Street ships a CMOS5L DEF.

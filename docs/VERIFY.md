@@ -6,16 +6,18 @@ From the repo root. Fail closed: if a command is missing, that layer did not run
 ./sim/check.sh
 ```
 
-That is the only script GHA runs (Python + Icarus). OCaml and SBY run when `dune` / `sby` are on `PATH`.
+That is the only script GHA `test.yaml` runs (Python + Icarus UART + lockstep). OCaml and SBY run when `dune` / `sby` are on `PATH`.
 
 | Layer | Command | Pass signal |
 |---|---|---|
 | Python golden + SAT + protocol matrix | `python3 sim/test_all.py` | prints `golden+SAT: ... OK` |
 | RTL UART + peek | `iverilog` + `vvp test/tb_uart.vvp` | `PASS UART TX 0x55` and `PASS peek PC` |
+| SM lockstep | `python3 sim/lockstep.py` then `vvp test/tb_sm_lockstep.vvp` | `PASS lockstep cases=…` |
 | OCaml SAT | `cd ocaml && dune exec ./sat_decode.exe` | `OCaml SAT-on-decode: 65536-word bijection OK` |
 | OCaml UART golden | `cd ocaml && dune exec ./uart_tx.exe` | `OCaml UART TX 0x55 on pin0 OK` |
 | SBY field split | `cd formal && sby -f decode.sby` | `SBY+... DONE (PASS, rc=0)` |
-| Generic synth | `yosys -s sim/synth.ys` | elaborates; cell count is not STA |
+| SBY opcode step | `cd formal && sby -f step.sby` | `DONE (PASS, rc=0)` |
+| Generic synth | `yosys -s sim/synth.ys` | elaborates; no `sram_flop`; cell count is not STA |
 
 OCaml env on this machine:
 

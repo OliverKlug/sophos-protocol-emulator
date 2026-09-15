@@ -23,6 +23,8 @@ Hold strobe low, present `{cmd, nibble}`, raise strobe one cycle, drop it. `host
 
 Peek select: 0 PC0, 1 X0, 2 Y0, 3 ISR0, 4 OSR0, 5 FIFO flags, 6 capture wptr, 7 pins, 8 PC1, 9 X1, 10 RX0 (pop). PC1 is tied off on this die.
 
+Peek-10 pops RX0 on the strobe-rise posedge and `uo_out` holds that byte until the next posedge. Read it before another clock, or you sample the following FIFO word (empty → 0).
+
 Load a program: cmd 2 with addr 0, then for each 16-bit word four cmd-0 nibbles (MSB first) and cmd 1. Push a TX word the same way, then cmd 3. Start SM0 with cmd 5 nibble `0001`. Capture on with nibble `0101`.
 
-I2C is not raw bytes in the FIFO. Push `fw/i2c_master.encode_byte()` PINOE words (two per bit).
+I2C is not raw bytes in the FIFO. Push `fw/i2c_master.encode_byte()` PINOE words (two per bit). Halt (cmd 5 nibble 0) and rewrite IMEM to switch UART → SPI → I2C; 32 words will not hold all three at once.

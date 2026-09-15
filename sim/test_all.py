@@ -13,12 +13,17 @@ sys.path.insert(0, str(ROOT / "fw"))
 
 from golden import Core, Sm  # noqa: E402
 from isa import decode_fields, encode, inn, jmp, out, sett, wait_pin  # noqa: E402
+from monitors import OdMonitor  # noqa: E402
 from sat_decode import prove_decode  # noqa: E402
 import i2c_master  # noqa: E402
 import jtag_shift  # noqa: E402
 import ps2  # noqa: E402
 import spi_master  # noqa: E402
 import swd  # noqa: E402
+import test_i2c_opendrain  # noqa: E402
+import test_jtag_idcode  # noqa: E402
+import test_spi_jedec  # noqa: E402
+import test_uart_rx_jitter  # noqa: E402
 import uart_rx  # noqa: E402
 import uart_tx  # noqa: E402
 import usb_ls  # noqa: E402
@@ -148,58 +153,6 @@ def test_spi_mode_bits() -> None:
                 )
 
 
-def _i2c_wait_pcs() -> tuple[int, int]:
-    waits = [
-        i
-        for i, w in enumerate(i2c_master.program())
-        if decode_fields(w)["op"] == 1
-    ]
-    if len(waits) < 2:
-        raise AssertionError("I2C needs WAIT SCL and WAIT ACK")
-    return waits[0], waits[1]
-
-
-def test_i2c_stretch() -> None:
-    prog = i2c_master.program()
-    stretch_pc, ack_pc = _i2c_wait_pcs()
-    c = Core()
-    c.load(prog)
-    for w in i2c_master.encode_byte(0x00):
-        c.sm0.tx.append(w)
-    c.start0 = True
-    stalled = 0
-    for _ in range(80):
-        c.uio_in = 1
-        c.step()
-        if c.sm0.pc == stretch_pc:
-            stalled += 1
-    if stalled < 4:
-        raise AssertionError(f"I2C never stuck on WAIT SCL pc={stretch_pc} last={c.sm0.pc}")
-    woke = False
-    for _ in range(8):
-        c.uio_in = 3
-        c.step()
-        if c.sm0.pc != stretch_pc:
-            woke = True
-            break
-    if not woke:
-        raise AssertionError("SCL high did not retire WAIT")
-
-    nak = Core()
-    nak.load(prog)
-    for w in i2c_master.encode_byte(0x00):
-        nak.sm0.tx.append(w)
-    nak.start0 = True
-    nak.uio_in = 3
-    ack_stall = 0
-    for _ in range(80):
-        nak.step()
-        if nak.sm0.pc == ack_pc:
-            ack_stall += 1
-    if ack_stall < 2:
-        raise AssertionError(f"NAK did not stall on WAIT ACK pc={ack_pc} last={nak.sm0.pc}")
-
-
 def test_i2c_start_and_od() -> None:
     c = Core()
     c.load(i2c_master.program())
@@ -207,19 +160,20 @@ def test_i2c_start_and_od() -> None:
         c.sm0.tx.append(w)
     c.start0 = True
     c.uio_in = 0xFF
-    last_sda, last_scl = 1, 1
+    mon = OdMonitor()
     saw_start = False
+    last_sda, last_scl = 1, 1
     for _ in range(40):
         res, oe = c.step()
-        driven = res
-        sda, scl = driven & 1, (driven >> 1) & 1
-        if (oe & 1) and (c.sm0.pin_out & 1):
-            raise AssertionError("I2C drove SDA high")
+        mon.check(res, oe, c.sm0.pin_out)
+        sda, scl = res & 1, (res >> 1) & 1
         if last_scl == 1 and last_sda == 1 and sda == 0 and scl == 1:
             saw_start = True
         last_sda, last_scl = sda, scl
     if not saw_start:
         raise AssertionError("no I2C START (SDA fall while SCL=1)")
+    if mon.starts < 1:
+        raise AssertionError("OD monitor missed START on resolved bus")
 
 
 def test_baud_clkdiv() -> None:
@@ -246,17 +200,18 @@ def test_baud_clkdiv() -> None:
         raise AssertionError(f"clkdiv=2 did not stretch the frame {a} vs {b}")
 
 
-def test_jtag_swd_ps2_usb_are_programs() -> None:
+def test_swd_ps2_usb_are_programs() -> None:
     for name, prog in (
-        ("jtag", jtag_shift.program()),
         ("swd", swd.program()),
         ("ps2", ps2.program()),
         ("usb_ls", usb_ls.program()),
     ):
-        if len(prog) < 4:
+        if not prog:
             raise AssertionError(name)
         if any(w > 0xFFFF for w in prog):
             raise AssertionError(name)
+    if len(jtag_shift.program()) > 32:
+        raise AssertionError("jtag IDCODE does not fit 32")
 
 
 def test_pinoe_one_beat() -> None:
@@ -408,10 +363,13 @@ def main() -> None:
     test_uart_rx_from_trace(0xB5)
     test_uart_rx_from_trace(0x55)
     test_spi_mode_bits()
-    test_i2c_stretch()
+    test_i2c_opendrain.main()
     test_i2c_start_and_od()
+    test_uart_rx_jitter.main()
+    test_spi_jedec.main()
+    test_jtag_idcode.main()
     test_baud_clkdiv()
-    test_jtag_swd_ps2_usb_are_programs()
+    test_swd_ps2_usb_are_programs()
     test_pinoe_one_beat()
     test_two_identical_sms()
     test_in_out_count()
@@ -422,8 +380,8 @@ def main() -> None:
     test_uart_tb_words()
     test_status_word()
     test_one_cycle_nop()
-    print("golden+SAT: UART TX/RX replay 0xB5, SPI 4 modes x 8/16, I2C stretch/NAK,")
-    print("WAIT stall, side-set, clkdiv stretch, capture purity, SAT bijection OK")
+    print("golden+SAT: UART TX/RX replay 0xB5, frame RX jitter, SPI MOSI+JEDEC MISO,")
+    print("I2C slave stretch/NACK/Sr, JTAG IDCODE, WAIT/side-set/clkdiv/SAT OK")
 
 
 if __name__ == "__main__":

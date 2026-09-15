@@ -11,3 +11,11 @@ We are designing to 8x4 from the blog until you say otherwise.
 
 Thanks,
 Oliver
+
+---
+
+Reply 2026-09-15 from Anish (`asic-competition@janestreet.com`):
+
+> Thanks for reaching out! Sorry about the confusion, you're right that the template doesn't support 8x4 yet, we're still working getting support for that added. For now you can start developing using the 6x4 template (we've also updated the instructions to reflect this), and we'll send an update if the 8x4 becomes available.
+
+Binding: stay on `tiles: "6x4"`. Reopen 8×4 only if they mail that the CMOS5L DEF exists.

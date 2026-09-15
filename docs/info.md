@@ -17,9 +17,9 @@ Host protocol lives on `ui_in`: nibble + 3-bit cmd + rising strobe. `uio[7:0]` a
 1. Load `fw/uart_tx` through the host nibble (`host/loader.py`).
 2. Push a byte into SM0's TX FIFO.
 3. CTRL start SM0 (`ui_in` cmd 5, nibble bit 0).
-4. Watch `uio[0]` for 8n1. Icarus check: `iverilog` + `test/tb_uart.v` expects 0x55. GLS: same vector, not idle.
+4. Watch `uio[0]` for 8n1. Icarus check: `iverilog` + `test/tb_uart.v` expects 0x55. GLS: same vector, not idle. Host-reload UART then SPI then I2C: `test/tb_three_proto.v` (`PASS three proto host-load`). RX peek-10: `test/tb_uart_rx.v`.
 
-SPI master modes 0-3, I2C stretch/ACK, JTAG, SWD, PS/2, and a USB LS-shaped TX are other programs in `fw/`. Same silicon.
+SPI master modes 0-3, SPI JEDEC MISO (`test/tb_spi.v`), I2C stretch/ACK vs a slave model, and JTAG IDCODE (`test/tb_jtag.v`) are other programs in `fw/`. SWD, PS/2, and USB LS are pin-dances. Same silicon. No board: no FT232, physical W25Q, or OpenOCD.
 
 Golden + SAT: `python3 sim/test_all.py`. Full local stack: `./sim/check.sh` (adds OCaml and SBY when installed). Honest phase ticks: `docs/STATUS.md`.
 

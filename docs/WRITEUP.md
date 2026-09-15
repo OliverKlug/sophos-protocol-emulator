@@ -22,7 +22,7 @@ IMEM is 32 × 16. One pipeline instance on the routed die. SM1 is generate-off (
 
 ## Why not PIO / PRU
 
-PIO's 32-word shared IMEM and X/Y-only file are why I2C becomes `OUT EXEC` soup and USB becomes an ARM busy-wait. We have 32 instructions (firmware max today is 19) and 16-bit X/Y/ISR/OSR plus debug peek (PC, X, Y, ISR, OSR, FIFO, capture wptr, RX0). PRU is a 32-bit RISC plus industrial helpers. That will not fit, and pin wait is a poll loop. We kept hardware `WAIT`.
+PIO's 32-word shared IMEM and X/Y-only file are why I2C becomes `OUT EXEC` soup and USB becomes an ARM busy-wait. We have 32 instructions (I2C master is 28; JTAG IDCODE 26; SPI JEDEC 19; UART frame RX 16) and 16-bit X/Y/ISR/OSR plus debug peek (PC, X, Y, ISR, OSR, FIFO, capture wptr, RX0). PRU is a 32-bit RISC plus industrial helpers. That will not fit, and pin wait is a poll loop. We kept hardware `WAIT`.
 
 ## Capture/replay
 
@@ -51,16 +51,19 @@ On pin or OE change, the core writes a 16-deep flop shadow. `replay_en` drives `
 | Expect-style UART | Icarus frame hunt for 0x55; golden `sample_uart_tx` |
 | Golden lockstep | `sim/lockstep.py` + `test/tb_sm_lockstep.v`: 8×8×32, delay 0/1/15, small side=1 slice |
 | Constrained random | 200 random IMEM words, pin noise, PC bound 31 |
-| SPI 4 modes | golden: modes 0-3 x 8/16 MOSI bits |
-| I2C | START (SDA fall, SCL=1), WAIT SCL stretch, NAK stall, never drive SDA 1 |
+| SPI 4 modes + JEDEC MISO | golden MOSI 0–3 × 8/16; `PASS SPI MISO` vs a flash model (EF 40 16 after 0x9F, not MOSI loopback) |
+| I2C | slave ACK / NACK→STOP / stretch 1 bit and 1 byte / Sr; OD monitor on the resolved bus; Icarus in `tb_three_proto` |
+| UART RX | frame program ±0/2/5% baud and jitter; `PASS UART RX peek-10` |
+| JTAG | `PASS JTAG IDCODE` vs TAP `0x1234ABCD`; SWD/PS2/USB LS are pin-dances |
+| Three proto | `PASS three proto host-load` on one wrapper, SM1 off |
 | Capture purity | SM halted: pin changes move capture wptr only |
-| P&R | CMOS5L 6×4 configs in tree. Phase 2 not ticked until GHA `gds` + UART GLS |
+| P&R | CMOS5L 6×4 GDS + UART GLS green on GHA run 34907266141. Viewer/Pages is not enabled on this private repo |
 | AI | used to draft RTL and tests; oracles are SAT, golden, Icarus, SBY |
 
 ## 6×4 / shuttle
 
-CMOS5L `tt-support-tools` branch `ihp-sg13cmos5l` has no 8×4 tile and no 8×4 DEF (citations under `docs/citations/`). Gremlin-Board shipped 6×4 on the same action. Email sent: `docs/EMAIL_8x4.md`. Reopen 8×4 only if Jane Street ships a CMOS5L DEF.
+CMOS5L `tt-support-tools` branch `ihp-sg13cmos5l` has no 8×4 tile and no 8×4 DEF (citations under `docs/citations/`). Anish 2026-09-15: develop on 6×4; they will mail if 8×4 lands. Copy: `docs/EMAIL_8x4.md`. GHA GDS + UART GLS on 6×4 are green (`docs/STATUS.md`).
 
 ## What we will not claim
 
-USB FS/HS. On-die Ethernet PHY. TinyQV 64 MHz as an IHP number. A 50 ns SPI-slave path. FAULT/glitch as core RTL. Two SMs on this GDS.
+USB FS/HS. On-die Ethernet PHY. TinyQV 64 MHz as an IHP number. A 50 ns SPI-slave path. FAULT/glitch as core RTL. Two SMs on this GDS. FT232 / physical W25Q / OpenOCD (no board).

@@ -41,4 +41,6 @@ Side-set wins over OUT/SET on the same pin. Side-set fires on the first SM tick 
 
 NOP is `MOV Y, Y`.
 
-I2C firmware does not put raw data bytes in the TX FIFO. The host pushes `fw/i2c_master.encode_byte()` PINOE words (two per bit: SCL driven 0, then SCL HiZ). That is how stretch and open-drain share `{value, oe}` without a second pipeline.
+I2C firmware does not put raw data bytes in the TX FIFO. The host pushes `fw/i2c_master.encode_byte()` PINOE words (two per bit: SCL driven 0, then SCL HiZ). ACK is a 9th SCL; `JMP PIN` (SDA, cond 5) STOPs on NAK and does a repeated START on ACK. Never drive SDA 1.
+
+Program sizes that fit 32: UART TX 14, UART unrolled RX 12, UART frame RX 16, SPI mode-0 11, SPI JEDEC 19, I2C master 28, JTAG IDCODE 26. SWD, PS/2, and USB LS assemble but are unlabeled pin-dances. There is no `MOV OSR`; SPI JEDEC places the 8-bit reverse of `0x9F` in the TX low byte so LSB-first OUT is MSB-first on the wire, and still executes `MOV ISR, OSR, bitrev`.

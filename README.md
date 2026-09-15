@@ -6,7 +6,7 @@ Apache-2.0. Tree started from [ttihp-verilog-template](https://github.com/TinyTa
 
 ## What is actually green
 
-See `docs/STATUS.md`. Short version: ISA + firmware + Python/OCaml SAT + Icarus UART 0x55 + opcode lockstep are local. A routed CMOS5L 6×4 at 20 ns is the Phase 2 exit and is not ticked until GHA `gds` + UART GLS are green.
+See `docs/STATUS.md`. Short version: Phase 2 is ticked. CMOS5L 6×4 GDS + UART 0x55 GLS passed on GHA. Anish confirmed 6×4 until they ship 8×4.
 
 ## Quick check
 
@@ -30,7 +30,7 @@ A character leaves `uio[0]`. That is the week-1 gate (Verilog SM). Hardcaml Cycl
 |---|---|
 | `ISA.md` | Frozen 16-bit encoding |
 | `src/` | TT wrapper, one SM (SM1 generate-off), host, no SRAM on the die |
-| `fw/` | UART TX/RX, SPI 4 modes, I2C, JTAG, SWD, PS/2, USB LS-shaped |
+| `fw/` | UART TX / frame RX, SPI 4 modes + JEDEC, I2C master, JTAG IDCODE; SWD/PS2/USB LS pin-dances |
 | `sim/` | Python golden, SAT-on-decode, `check.sh` |
 | `ocaml/` | OCaml ISA + SAT + UART-ops golden (fallback) |
 | `formal/` | SymbiYosys field-split + opcode-step |
@@ -45,6 +45,6 @@ A character leaves `uio[0]`. That is the week-1 gate (Verilog SM). Hardcaml Cycl
 - `docs/PHASE0_CONSTRAINTS.md` — PDK / tile / pin sheet with cited numbers
 - `docs/WRITEUP.md` — Jane Street-facing writeup (draft)
 - `docs/info.md` — Tiny Tapeout datasheet
-- `docs/EMAIL_8x4.md` — sent mail (CMOS5L has no 8×4 DEF)
+- `docs/EMAIL_8x4.md` — 8×4 mail; Anish: stay on 6×4
 
-`info.yaml` is `tiles: "6x4"`. Reopen 8×4 only if Jane Street ships a CMOS5L DEF.
+`info.yaml` is `tiles: "6x4"`. Reopen 8×4 only if Jane Street mails that the CMOS5L DEF exists.

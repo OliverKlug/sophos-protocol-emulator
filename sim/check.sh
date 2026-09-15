@@ -2,10 +2,19 @@
 set -e
 cd "$(dirname "$0")/.."
 python3 sim/test_all.py
-iverilog -g2012 -o test/tb_uart.vvp \
-  src/project.v src/protoemu_core.v src/sm.v src/fifo4.v src/clkdiv.v \
-  test/tb_uart.v
-vvp test/tb_uart.vvp
+
+rtl() {
+  iverilog -g2012 -o "$1" \
+    src/project.v src/protoemu_core.v src/sm.v src/fifo4.v src/clkdiv.v \
+    "$2"
+  vvp "$1"
+}
+
+rtl test/tb_uart.vvp test/tb_uart.v
+rtl test/tb_uart_rx.vvp test/tb_uart_rx.v
+rtl test/tb_spi.vvp test/tb_spi.v
+rtl test/tb_jtag.vvp test/tb_jtag.v
+rtl test/tb_three_proto.vvp test/tb_three_proto.v
 
 python3 sim/lockstep.py
 iverilog -g2012 -o test/tb_sm_lockstep.vvp \

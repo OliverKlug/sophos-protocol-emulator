@@ -13,7 +13,7 @@ Cited 2026-09-14, CMOS5L tools re-read 2026-09-15. Do not budget from the Jane S
 - IHP CMOS5L repo: https://github.com/IHP-GmbH/ihp-sg13cmos5l
 - TTIHP0p4 was a 2026-03-28 CMOS5L test shuttle, no chips. IHP foundry CMOS5L tape-in 2027-03-30 is not a Tiny Tapeout shuttle. No open March 2027 TT CMOS5L row on tinytapeout.com/chips as of this sheet.
 
-**Action:** email sent (`docs/EMAIL_8x4.md`). Live harden is `tiles: "6x4"` / DIE_AREA `0 0 1289.28 710.64`. Reopen 8×4 only if Jane Street ships a CMOS5L DEF.
+**Action:** Anish (2026-09-15) confirmed no 8×4 template yet; develop on 6×4; they will mail if 8×4 lands. Live harden is `tiles: "6x4"` / DIE_AREA `0 0 1289.28 710.64`. Copy in `docs/EMAIL_8x4.md`.
 
 ## Pins (do not scale with tiles)
 

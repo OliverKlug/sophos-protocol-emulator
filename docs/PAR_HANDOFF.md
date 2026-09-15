@@ -32,4 +32,4 @@ Close STA at 50 MHz. Claim UART to a few Mbaud, SPI master a few MHz, I2C 100/40
 
 ## GLS
 
-RTL: `test/tb_uart.v` (Icarus, PASS UART TX 0x55). Gate-level: `test/Makefile` GATES=yes must compile `sg13cmos5l_udp.v`. Vector is UART 0x55 via `test/test.py`, not idle `uo_out[0]==0`.
+RTL: `test/tb_uart.v` (Icarus, PASS UART TX 0x55). Gate-level: GHA `gl_test` on `ab80ad6` ran `test.test_uart_0x55` against the CMOS5L netlist, PASS. Makefile includes `sg13cmos5l_udp.v`.

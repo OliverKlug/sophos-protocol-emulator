@@ -7,10 +7,8 @@ As of 2026-09-15. Do not treat a checkbox here as a LibreLane GDS.
 Checked:
 
 - Template clone from `ttihp-verilog-template`, top `tt_um_klug_protoemu`.
-- Email sent to `asic-competition@janestreet.com` (copy in `EMAIL_8x4.md`). Waiting on a reply.
-- CMOS5L tools: **no `8x4` key**, **no `tt_block_8x4_pgvdd.def`**. Height-4 DEFs stop at `6x4`. Live `info.yaml` is `tiles: "6x4"`.
-
-Not checked: Jane Street shipping an 8×4 CMOS5L DEF.
+- Email sent to `asic-competition@janestreet.com` (copy in `EMAIL_8x4.md`). Anish replied 2026-09-15: template has no 8×4 yet; develop on 6×4; they will mail if 8×4 lands.
+- CMOS5L tools: **no `8x4` key**, **no `tt_block_8x4_pgvdd.def`**. Height-4 DEFs stop at `6x4`. Live `info.yaml` is `tiles: "6x4"`. That is now the contest instruction, not a guess.
 
 ## Phase 1 — UART out of a pin
 
@@ -24,26 +22,28 @@ Not checked: Hardcaml Cyclesim of an SM. That rewrite is off the table.
 
 ## Phase 2 — CMOS5L 6×4 harden and opcode formal
 
-Local, not a silicon tick:
+Checked on `ab80ad6`, GHA [run 34907266141](https://github.com/OliverKlug/protoemu/actions/runs/34907266141), 2026-09-15:
 
-- Area cut: 32×16 IMEM (64 was >8k generic Yosys), SM1 generate-off, no `u_sram`, capture depth 16, RX0 pop on peek-10.
-- Golden STATUS `{tx_empty, rx_full, osre}`, PC wrap 31.
-- `formal/step.sby` + `sim/lockstep.py` / `test/tb_sm_lockstep.v` (8×8×32, delay 0/1/15).
-- Floor: `tiles: "6x4"`, DIE_AREA `0 0 1289.28 710.64`, `RT_MAX_LAYER: Metal4`, PDN 50/2.1, action `@ihp-cmos5l` / `ihp-sg13cmos5l`.
-- GL Makefile includes `sg13cmos5l_udp.v`. Vector is UART 0x55.
+- `gds` `@ihp-cmos5l` / `ihp-sg13cmos5l` / `tiles: "6x4"` success (1h19m).
+- `precheck` success (43m).
+- `gl_test` success: cocotb `test.test_uart_0x55` on the gate netlist, `TESTS=1 PASS=1 FAIL=0`. Not idle `uo_out[0]==0`.
+- Local: `./sim/check.sh` (golden + UART RTL + lockstep 6180 + `formal/step.sby` PASS). Yosys generic 7830 cells, no `sram_flop`.
 
-**Not ticked.** Phase 2 stays open until the CMOS5L `gds` job is green and UART GLS passes. Viewer/Pages is not a silicon exit.
+Viewer failed: private-repo GitHub Pages 404. Not a silicon exit.
+
+Die: one SM, 32×16 IMEM, capture 16, no IHP SRAM. Anish: stay on 6×4 until they ship 8×4.
 
 ## Phase 3 — protocols as programs
 
-Checked in Python golden:
+Checked locally, 2026-09-15. Same CMOS5L 6×4 die as Phase 2 (`PROTOEMU_SM1=0`). No new GDS.
 
-- SPI master modes 0–3 × 8/16 MOSI bits.
-- I2C START, `WAIT SCL=1` stretch, NAK stall, never drive SDA high.
-- JTAG / SWD / PS/2 / USB LS-shaped programs assemble.
-- Two-SM golden path still exists (`Core(sm1=True)`). It is not on this die.
+- Icarus `test/tb_three_proto.v`: `PASS three proto host-load` (UART TX 0x55, SPI mode-0 MOSI, I2C START+OD+stretch+ACK) on one `tt_um_klug_protoemu`, sequential IMEM reload.
+- Icarus `test/tb_uart_rx.v`: `PASS UART RX peek-10` (cmd 7 nibble 10; `uo_out` is the left-shifted ISR byte, host bit-reverses).
+- Icarus `test/tb_spi.v`: `PASS SPI MISO` (JEDEC 0x9F vs a Verilog flash; RX is EF 40 16, not MOSI loopback).
+- Icarus `test/tb_jtag.v`: `PASS JTAG IDCODE` vs a TAP model (`0x1234ABCD`). The old `len(prog)>=4` cartoon is retired.
+- Python: I2C wired-AND slave (ACK, NACK→STOP, stretch 1 bit / 1 byte, repeated START, OD monitor on the resolved bus). UART frame RX ±0/2/5% baud, ±1 tick jitter, runt, bad stop / break recover. SPI `fw/spi_jedec.py` + `sim/flash_miso.py`.
 
-Not checked: FT232 UART, W25Q JEDEC, stretching I2C slave, OpenOCD IDCODE. No board.
+Named skip, no board: FT232 UART, physical W25Q, OpenOCD. SWD / PS/2 / USB LS stay unlabeled pin-dances. SPI/I2C GLS is Phase 5. Two SMs are not on this GDS.
 
 ## Phase 4 — capture / replay
 
@@ -58,7 +58,9 @@ Not checked: RTL capture dump vs golden lockstep on the host nibble.
 
 ## Phase 5 — FPGA / GLS / STA
 
-Not checked. No FPGA, no Verilator, no LibreLane GLS on this machine, no 20 ns proof.
+Checked: GHA UART 0x55 GLS on the CMOS5L netlist (Phase 2). STA 20 ns is whatever that LibreLane run printed in `GDS_logs`; not re-read into this file yet.
+
+Not checked: FPGA, Verilator, a local LibreLane/PDK tree.
 
 ## Phase 6 — stretch
 

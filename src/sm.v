@@ -57,19 +57,17 @@ module protoemu_sm (
     wire [1:0] mov_op    = pay[4:3];
     wire [2:0] mov_src   = pay[2:0];
 
-    function [0:0] wait_bit;
-        input [2:0] src;
-        input [4:0] idx;
-        begin
-            case (src)
-                3'd0: wait_bit = pin_in[idx[2:0]];
-                3'd1: wait_bit = irq_in[idx[2:0]];
-                default: wait_bit = pin_in[in_base];
-            endcase
-        end
-    endfunction
+    // Combo, not a function: Icarus 13 leaves function-of-wires as stale/X.
+    reg wait_bit;
+    always @* begin
+        case (wait_src)
+            3'd0: wait_bit = pin_in[wait_idx[2:0]];
+            3'd1: wait_bit = irq_in[wait_idx[2:0]];
+            default: wait_bit = pin_in[in_base];
+        endcase
+    end
 
-    wire wait_met = (wait_bit(wait_src, wait_idx) == wait_pol);
+    wire wait_met = (wait_bit == wait_pol);
     wire is_wait  = (op == OP_WAIT);
     wire irq_wait_op = (op == OP_IRQ) && pay[6] && !pay[7];
     wire stall_irq_wait = irq_wait_op && !irq_in[pay[2:0]];

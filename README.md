@@ -6,7 +6,7 @@ Apache-2.0. Tree started from [ttihp-verilog-template](https://github.com/TinyTa
 
 ## What is actually green
 
-See `docs/STATUS.md`. Short version: Phase 2 is ticked. CMOS5L 6×4 GDS + UART 0x55 GLS passed on GHA. Anish confirmed 6×4 until they ship 8×4.
+See `docs/STATUS.md`. Short version: Phase 5 is ticked. CMOS5L 6×4 GDS + UART 0x55 GLS + precheck passed on GHA; STA closes at 25 ns / 40 MHz. Anish confirmed 6×4 until they ship 8×4.
 
 ## Quick check
 

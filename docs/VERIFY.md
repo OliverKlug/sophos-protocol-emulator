@@ -22,6 +22,10 @@ That is the only script GHA `test.yaml` runs (Python + Icarus UART TX/RX, SPI MI
 | SBY field split | `cd formal && sby -f decode.sby` | `SBY+... DONE (PASS, rc=0)` |
 | SBY opcode step | `cd formal && sby -f step.sby` | `DONE (PASS, rc=0)` |
 | Generic synth | `yosys -s sim/synth.ys` | elaborates; no `sram_flop`; cell count is not STA |
+| GHA GDS | `gds.yaml` `@ihp-cmos5l` | job green; do not commit `runs/` |
+| GHA precheck | same workflow | job green (ignore viewer Pages 404) |
+| GHA GLS | `gl_test` / `test.test_uart_0x55` | `TESTS=1 PASS=1 FAIL=0` |
+| Signoff STA | `GDS_logs` `55-openroad-stapostpnr/summary.rpt` + `final/metrics.json` | 25 ns, setup/hold vio count 0 |
 
 OCaml env on this machine:
 
@@ -31,4 +35,4 @@ eval "$(opam env --switch=ocaml-base-compiler.5.3.0)"
 
 Hardcaml is not installed and will not own the SM. SBY here is the field-split identity, not NuSMV. The 65536-word bijection in Python and OCaml is the decode proof that can actually fail if `encode` and `decode` drift.
 
-No FT232, physical W25Q, OpenOCD, or LibreLane command is listed because none of those have been run. Those are named skips, not silent holes.
+No FT232, physical W25Q, OpenOCD, FPGA bitstream, or local LibreLane command is listed because none of those have been run. Those are named skips, not silent holes. STA numbers come from the GHA `GDS_logs` artifact, not from a PDK on this machine.

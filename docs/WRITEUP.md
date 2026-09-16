@@ -57,12 +57,12 @@ On pin or OE change, the core writes a 16-deep flop shadow. `replay_en` drives `
 | JTAG | `PASS JTAG IDCODE` vs TAP `0x1234ABCD`; SWD/PS2/USB LS are pin-dances |
 | Three proto | `PASS three proto host-load` on one wrapper, SM1 off |
 | Capture purity | SM halted: pin changes move capture wptr only |
-| P&R | CMOS5L 6×4 GDS + UART GLS green on GHA run 34907266141. Viewer/Pages is not enabled on this private repo |
+| P&R | CMOS5L 6×4 GDS + UART GLS + precheck on GHA run 35023276762 (`8e4ef83`). STA 25 ns / 40 MHz, slow setup WS +0.50 ns, hold WS +0.11 ns, vio count 0. Viewer/Pages is not enabled on this private repo |
 | AI | used to draft RTL and tests; oracles are SAT, golden, Icarus, SBY |
 
 ## 6×4 / shuttle
 
-CMOS5L `tt-support-tools` branch `ihp-sg13cmos5l` has no 8×4 tile and no 8×4 DEF (citations under `docs/citations/`). Anish 2026-09-15: develop on 6×4; they will mail if 8×4 lands. Copy: `docs/EMAIL_8x4.md`. GHA GDS + UART GLS on 6×4 are green (`docs/STATUS.md`).
+CMOS5L `tt-support-tools` branch `ihp-sg13cmos5l` has no 8×4 tile and no 8×4 DEF (citations under `docs/citations/`). Anish 2026-09-15: develop on 6×4; they will mail if 8×4 lands. Copy: `docs/EMAIL_8x4.md`. Phase 5 GDS + UART GLS + 25 ns STA are green (`docs/STATUS.md`).
 
 ## What we will not claim
 

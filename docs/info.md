@@ -10,7 +10,7 @@ Each instruction is 16 bits: 3-bit opcode, a PIO-style shared delay/side-set fie
 
 Instruction memory is 32 × 16 flops. Capture is 16 shadow records. There is no IHP SRAM macro on this stack (TopMetal2). Capture/replay plus a peek mux on `uo_out` is the reverse-engineering instrument. Peek select 10 is RX0 and pops that FIFO.
 
-Host protocol lives on `ui_in`: nibble + 3-bit cmd + rising strobe. `uio[7:0]` are the protocol pins. STA clock is 50 MHz (`clock_hz: 50000000`); board UART is pad-limited.
+Host protocol lives on `ui_in`: nibble + 3-bit cmd + rising strobe. `uio[7:0]` are the protocol pins. STA clock is 40 MHz (`clock_hz: 40000000`); board UART is pad-limited.
 
 ## How to test
 

@@ -10,7 +10,7 @@ CMOS5L `tile_sizes.yaml` (cited in `docs/citations/`):
 6x4: "0 0 1289.28 710.64"
 ```
 
-`src/user_config.json` sets that DIE_AREA, `FP_DEF_TEMPLATE` `tt_block_6x4_pgvdd.def`, `RT_MAX_LAYER: Metal4`. `src/config.json` PDN is Gremlin CMOS5L prior: `FP_PDN_VPITCH` 50.0, `FP_PDN_VWIDTH` 2.1. `CLOCK_PERIOD` 20 ns.
+`src/user_config.json` sets that DIE_AREA, `FP_DEF_TEMPLATE` `tt_block_6x4_pgvdd.def`, `RT_MAX_LAYER: Metal4`. `src/config.json` PDN is Gremlin CMOS5L prior: `FP_PDN_VPITCH` 50.0, `FP_PDN_VWIDTH` 2.1. `CLOCK_PERIOD` 25 ns (20 ns missed slow setup by 3.89 ns).
 
 `src/user_config.8x4.json` is archive only. Do not harden it.
 
@@ -28,8 +28,12 @@ Cut order if GPL dies: IMEM 32, then capture 8, then stop. Hold: density 60→80
 
 ## Claimed board rates (not TinyQV 64 MHz)
 
-Close STA at 50 MHz. Claim UART to a few Mbaud, SPI master a few MHz, I2C 100/400 kHz. USB LS only if the pad is clean at 12 MHz. Board UART stays pad-limited.
+Close STA at 40 MHz (25 ns). Claim UART to a few Mbaud, SPI master a few MHz, I2C 100/400 kHz. USB LS only if the pad is clean at 12 MHz. Board UART stays pad-limited. Do not claim 50 MHz: that constraint failed slow-corner setup.
 
 ## GLS
 
-RTL: `test/tb_uart.v` (Icarus, PASS UART TX 0x55). Gate-level: GHA `gl_test` on `ab80ad6` ran `test.test_uart_0x55` against the CMOS5L netlist, PASS. Makefile includes `sg13cmos5l_udp.v`.
+RTL: `test/tb_uart.v` (Icarus, PASS UART TX 0x55). Gate-level: GHA `gl_test` on `8e4ef83` (run 35023276762) ran `test.test_uart_0x55` against the CMOS5L netlist, `TESTS=1 PASS=1`. Makefile includes `sg13cmos5l_udp.v`. SPI/I2C stay Icarus RTL, not `test.py`.
+
+## STA (signoff, not generic Yosys)
+
+From run 35023276762 `GDS_logs`: `create_clock -period 25.0000`. Overall / slow setup WS +0.50 ns, hold WS +0.11 ns (slow hold +0.65 ns). Setup and hold vio count 0. Post-P&R stdcells 8284, util 15.5%. Generic `sim/synth.ys` 7830 is still not STA.

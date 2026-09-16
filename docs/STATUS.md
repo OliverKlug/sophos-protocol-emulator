@@ -1,6 +1,6 @@
 # Status (only what was run and passed)
 
-As of 2026-09-15. Do not treat a checkbox here as a LibreLane GDS.
+As of 2026-09-16. Do not treat a checkbox here as a LibreLane GDS.
 
 ## Phase 0 — contest lock
 
@@ -43,7 +43,7 @@ Checked locally, 2026-09-15. Same CMOS5L 6×4 die as Phase 2 (`PROTOEMU_SM1=0`).
 - Icarus `test/tb_jtag.v`: `PASS JTAG IDCODE` vs a TAP model (`0x1234ABCD`). The old `len(prog)>=4` cartoon is retired.
 - Python: I2C wired-AND slave (ACK, NACK→STOP, stretch 1 bit / 1 byte, repeated START, OD monitor on the resolved bus). UART frame RX ±0/2/5% baud, ±1 tick jitter, runt, bad stop / break recover. SPI `fw/spi_jedec.py` + `sim/flash_miso.py`.
 
-Named skip, no board: FT232 UART, physical W25Q, OpenOCD. SWD / PS/2 / USB LS stay unlabeled pin-dances. SPI/I2C GLS is Phase 5. Two SMs are not on this GDS.
+Named skip, no board: FT232 UART, physical W25Q, OpenOCD. SWD / PS/2 / USB LS stay unlabeled pin-dances. Gate-level vector stays UART 0x55; SPI/I2C stay Icarus RTL. Two SMs are not on this GDS.
 
 ## Phase 4 — capture / replay
 
@@ -58,9 +58,16 @@ Not checked: RTL capture dump vs golden lockstep on the host nibble.
 
 ## Phase 5 — FPGA / GLS / STA
 
-Checked: GHA UART 0x55 GLS on the CMOS5L netlist (Phase 2). STA 20 ns is whatever that LibreLane run printed in `GDS_logs`; not re-read into this file yet.
+Checked on `8e4ef83` (WAIT combo + Phase 3 firmware), GHA [run 35023276762](https://github.com/OliverKlug/protoemu/actions/runs/35023276762), 2026-09-16:
 
-Not checked: FPGA, Verilator, a local LibreLane/PDK tree.
+- `gds` `@ihp-cmos5l` success (1h24m). One SM, 32×16 IMEM, capture 16. `CLOCK_PERIOD` 25 ns.
+- `precheck` success (41m). First attempt on this run was canceled mid-klayout (`results.xml` missing); rerun greened. Not a DRC report.
+- `gl_test` success: `test.test_uart_0x55`, `TESTS=1 PASS=1 FAIL=0`. Not idle.
+- Signoff STA from `GDS_logs` `55-openroad-stapostpnr/summary.rpt` and `final/metrics.json`: 25 ns, setup/hold vio count 0 (aggregated and `nom_slow_1p08V_125C`). Slow setup WS **+0.50 ns**, overall hold WS **+0.11 ns**. 20 ns on the prior SHA missed slow setup by **−3.89 ns** (10 r2r vios, hold clean). Post-P&R stdcells 8284, util 15.5%.
+
+Viewer failed: private Pages 404, then duplicate `github-pages` artifact on rerun. Not a silicon exit.
+
+Named skip: FPGA (`fpga.yaml` `branches: none`, action tag `@ihp-cmos5l`), Verilator protocol twin, SDF GLS, SPI/I2C in `test.py`, two SMs, Hardcaml SEC.
 
 ## Phase 6 — stretch
 

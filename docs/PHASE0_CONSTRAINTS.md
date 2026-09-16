@@ -23,7 +23,7 @@ This chip: host nibble on `ui_in`, protocol pins on `uio`, peek/debug on `uo_out
 
 ## Clock
 
-LibreLane template `CLOCK_PERIOD: 20` (50 MHz STA). Claim board rates the pad will do. TinyQV 64 MHz is not an IHP prior. **STA has not been run.**
+LibreLane `CLOCK_PERIOD` is 25 ns (40 MHz STA). 20 ns missed slow-corner setup by 3.89 ns on the WAIT SHA. Claim board rates the pad will do. TinyQV 64 MHz is not an IHP prior. Signoff STA is in `docs/STATUS.md` / `docs/PAR_HANDOFF.md` from GHA `GDS_logs`.
 
 ## SRAM
 

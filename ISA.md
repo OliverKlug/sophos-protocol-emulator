@@ -1,4 +1,4 @@
-# ProtoEmu ISA (frozen)
+# Sophos ISA (frozen)
 
 16-bit instruction. PIO shared delay/side-set field. Not a pioasm clone.
 

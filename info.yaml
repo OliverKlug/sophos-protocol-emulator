@@ -1,16 +1,16 @@
 # Tiny Tapeout project information
 project:
-  title: "ProtoEmu"
+  title: "Sophos"
   author: "Oliver Klug"
   discord: ""
-  description: "Reprogrammable protocol-emulator pin machine (one SM on this die)"
+  description: "Jane Street Tiny Tapeout protocol emulator ASIC (CMOS5L). UART/SPI/I2C firmware."
   language: "Verilog"
   clock_hz: 40000000
 
   # CMOS5L legal height-4 is 6x4. 8x4 DEF does not exist on ihp-sg13cmos5l.
   tiles: "6x4"
 
-  top_module: "tt_um_klug_protoemu"
+  top_module: "tt_um_klug_sophos"
 
   source_files:
     - "project.v"

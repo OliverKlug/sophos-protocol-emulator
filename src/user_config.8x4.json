@@ -1,6 +1,6 @@
 {
   "comment": "Archive only. Not the harden. CMOS5L has no 8x4 DEF; live floorplan is user_config.json 6x4.",
-  "DESIGN_NAME": "tt_um_klug_protoemu",
+  "DESIGN_NAME": "tt_um_klug_sophos",
   "DIE_AREA": "0 0 1724.16 710.64",
   "comment_tiles": "sg13g2 8x4 number. Do not point the gds action here."
 }

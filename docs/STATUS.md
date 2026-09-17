@@ -6,7 +6,7 @@ As of 2026-09-16. Do not treat a checkbox here as a LibreLane GDS.
 
 Checked:
 
-- Template clone from `ttihp-verilog-template`, top `tt_um_klug_protoemu`.
+- Template clone from `ttihp-verilog-template`. Product name is Sophos. Silicon top is `tt_um_klug_sophos` (was `tt_um_klug_protoemu` on GHA SHAs through `8e4ef83`).
 - Email sent to `asic-competition@janestreet.com` (copy in `EMAIL_8x4.md`). Anish replied 2026-09-15: template has no 8×4 yet; develop on 6×4; they will mail if 8×4 lands.
 - CMOS5L tools: **no `8x4` key**, **no `tt_block_8x4_pgvdd.def`**. Height-4 DEFs stop at `6x4`. Live `info.yaml` is `tiles: "6x4"`. That is now the contest instruction, not a guess.
 
@@ -37,7 +37,7 @@ Die: one SM, 32×16 IMEM, capture 16, no IHP SRAM. Anish: stay on 6×4 until the
 
 Checked locally, 2026-09-15. Same CMOS5L 6×4 die as Phase 2 (`PROTOEMU_SM1=0`). No new GDS.
 
-- Icarus `test/tb_three_proto.v`: `PASS three proto host-load` (UART TX 0x55, SPI mode-0 MOSI, I2C START+OD+stretch+ACK) on one `tt_um_klug_protoemu`, sequential IMEM reload.
+- Icarus `test/tb_three_proto.v`: `PASS three proto host-load` (UART TX 0x55, SPI mode-0 MOSI, I2C START+OD+stretch+ACK) on one `tt_um_klug_sophos`, sequential IMEM reload.
 - Icarus `test/tb_uart_rx.v`: `PASS UART RX peek-10` (cmd 7 nibble 10; `uo_out` is the left-shifted ISR byte, host bit-reverses).
 - Icarus `test/tb_spi.v`: `PASS SPI MISO` (JEDEC 0x9F vs a Verilog flash; RX is EF 40 16, not MOSI loopback).
 - Icarus `test/tb_jtag.v`: `PASS JTAG IDCODE` vs a TAP model (`0x1234ABCD`). The old `len(prog)>=4` cartoon is retired.

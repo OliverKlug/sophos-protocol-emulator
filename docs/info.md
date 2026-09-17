@@ -4,7 +4,7 @@ Tiny Tapeout datasheet.
 
 ## How it works
 
-ProtoEmu is a reprogrammable pin machine, not a UART+SPI+I2C mashup. One 16-bit state machine on this 6×4 CMOS5L die executes an ISA aimed at pins, delays, and FIFOs. A second SM is generate-off so a later die can turn it on. Firmware after tapeout is how a new protocol shows up.
+Sophos is a Jane Street Tiny Tapeout protocol-emulator entry: a reprogrammable pin machine, not a UART+SPI+I2C mashup. One 16-bit state machine on this 6×4 CMOS5L die executes an ISA aimed at pins, delays, and FIFOs. A second SM is generate-off so a later die can turn it on. Firmware after tapeout is how a new protocol shows up.
 
 Each instruction is 16 bits: 3-bit opcode, a PIO-style shared delay/side-set field (`SIDESET_COUNT=1`), and an 8-bit payload. Per-SM clock enable is `f_sm = f_sys / (INT + FRAC/256)`. `{value, oe}` is dest `PINOE`: one beat writes 8 data bits and 8 output-enables.
 

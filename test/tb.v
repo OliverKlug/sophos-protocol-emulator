@@ -18,7 +18,7 @@ module tb ();
   wire [7:0] uio_out;
   wire [7:0] uio_oe;
 
-  tt_um_klug_protoemu user_project (
+  tt_um_klug_sophos user_project (
       .ui_in  (ui_in),
       .uo_out (uo_out),
       .uio_in (uio_in),

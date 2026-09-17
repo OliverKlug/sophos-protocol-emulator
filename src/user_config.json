@@ -1,5 +1,5 @@
 {
-  "DESIGN_NAME": "tt_um_klug_protoemu",
+  "DESIGN_NAME": "tt_um_klug_sophos",
   "VERILOG_FILES": [
     "dir::project.v",
     "dir::protoemu_core.v",

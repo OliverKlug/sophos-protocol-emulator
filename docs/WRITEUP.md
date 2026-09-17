@@ -1,10 +1,10 @@
-# ProtoEmu writeup (Jane Street protocol-emulator ASIC)
+# Sophos writeup (Jane Street protocol-emulator ASIC)
 
 Deadline target: 2027-01-18. Process: IHP CMOS5L via Tiny Tapeout, 6×4 (legal height-4). One SM on this die.
 
 ## What this is
 
-A tiny ISA for reading pins, writing pins, waiting, and hitting a cycle. UART, SPI, and I2C are firmware. JTAG and SWD are firmware. Capture/replay is the product. SAT on every 16-bit encoding is how we show the decoder is not slop.
+Sophos is a tiny ISA for reading pins, writing pins, waiting, and hitting a cycle. UART, SPI, and I2C are firmware. JTAG and SWD are firmware. Capture/replay is the product. SAT on every 16-bit encoding is how we show the decoder is not slop.
 
 It is not three hardcoded peripherals. It is not a RISC-V. It is not a 32-word PIO clone.
 

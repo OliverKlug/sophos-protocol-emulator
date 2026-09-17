@@ -26,7 +26,9 @@ PIO's 32-word shared IMEM and X/Y-only file are why I2C becomes `OUT EXEC` soup 
 
 ## Capture/replay
 
-On pin or OE change, the core writes a 16-deep flop shadow. `replay_en` drives `uio` from that shadow. Peek mux is `uo_out`. Peek-10 is RX0 and pops it. No foundry SRAM: CMOS5L SRAM macros need TopMetal2.
+On pin or OE change (edge mode), or on SCLK rise while CS is low (SPI mode), the core commits a 32-slot flop file `{pins, oe, hold}`. Hold is inclusive duration of this sample, saturates at 255, and does not allocate overflow twins. `replay_en` restores those holds onto `uio`. Peek 11/12/13 dump pin/oe/hold at `dump_idx`; peek 14 increments it; peek 15 rewinds and loads `cap_mode` from `shifter[0]`. Peek-6 is the full-byte wptr.
+
+UART TX `0x55` fits (12 records). Icarus dumps via peek 11–13 (`PASS CAP dump`) and walks timed replay (`PASS CAP timed replay`). Edge-mode SPI replay recovers MOSI on SCLK (`PASS SPI CAP replay`). SCLK-qualified capture fits full JEDEC `0x9F` (`PASS JEDEC CAP`, ID `EF 40 16`). Peek mux is `uo_out`. Peek-10 is RX0 and pops it. No foundry SRAM: CMOS5L SRAM macros need TopMetal2.
 
 ## Host
 
@@ -54,9 +56,10 @@ On pin or OE change, the core writes a 16-deep flop shadow. `replay_en` drives `
 | SPI 4 modes + JEDEC MISO | golden MOSI 0–3 × 8/16; `PASS SPI MISO` vs a flash model (EF 40 16 after 0x9F, not MOSI loopback) |
 | I2C | slave ACK / NACK→STOP / stretch 1 bit and 1 byte / Sr; OD monitor on the resolved bus; Icarus in `tb_three_proto` |
 | UART RX | frame program ±0/2/5% baud and jitter; `PASS UART RX peek-10` |
-| JTAG | `PASS JTAG IDCODE` vs TAP `0x1234ABCD`; SWD/PS2/USB LS are pin-dances |
+| JTAG | `PASS JTAG IDCODE` vs TAP `0x1234ABCD`; SWD/PS2 remain pin-dances |
+| USB LS | host NRZI+stuff+CRC-16/USB; `USB LS SYNC+NRZI+stuff+EOP OK`; Icarus `PASS USB LS` (ACK, DATA0+FF, DATA0+00). Bit-layer TX, PHY off-chip, not a device |
 | Three proto | `PASS three proto host-load` on one wrapper, SM1 off |
-| Capture purity | SM halted: pin changes move capture wptr only |
+| Capture | Icarus `PASS UART CAP` / `PASS CAP lockstep`; `PASS SPI CAP replay` (4-bit MOSI, not JEDEC). 15 live slots, 1 record/clk replay. Golden purity: halted SM, pin changes move wptr |
 | P&R | CMOS5L 6×4 GDS + UART GLS + precheck on GHA run 35023276762 (`8e4ef83`). STA 25 ns / 40 MHz, slow setup WS +0.50 ns, hold WS +0.11 ns, vio count 0. Viewer/Pages is not enabled on this private repo |
 | AI | used to draft RTL and tests; oracles are SAT, golden, Icarus, SBY |
 
@@ -66,4 +69,4 @@ CMOS5L `tt-support-tools` branch `ihp-sg13cmos5l` has no 8×4 tile and no 8×4 D
 
 ## What we will not claim
 
-USB FS/HS. On-die Ethernet PHY. TinyQV 64 MHz as an IHP number. A 50 ns SPI-slave path. FAULT/glitch as core RTL. Two SMs on this GDS. FT232 / physical W25Q / OpenOCD (no board).
+USB FS/HS. USB HID / device stack / 6.5-bit turnaround. Hub/host LS clock ±0.05% (INT=27 FRAC=0 is a LS function −1.23%, inside ±1.5%, not hub 500 ppm). FPGA HID. CAN / ETH / FAULT. GLS USB. On-die Ethernet PHY. TinyQV 64 MHz as an IHP number. A 50 ns SPI-slave path. FAULT/glitch as core RTL. Two SMs on this GDS. FT232 / physical W25Q / OpenOCD (no board).

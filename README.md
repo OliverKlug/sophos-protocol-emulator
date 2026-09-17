@@ -1,12 +1,12 @@
 # ProtoEmu
 
-Reprogrammable pin machine for the [Jane Street Tiny Tapeout contest](https://blog.janestreet.com/protocol-emulator-asic-competition/) (deadline 2027-01-18). One 16-bit SM on a CMOS5L 6×4, PIO-style delay/side-set, per-SM clkdiv, capture/replay. UART / SPI / I2C / JTAG / SWD are firmware, not hard IP.
+Reprogrammable pin machine for the [Jane Street Tiny Tapeout contest](https://blog.janestreet.com/protocol-emulator-asic-competition/) (deadline 2027-01-18). One 16-bit SM on a CMOS5L 6×4, PIO-style delay/side-set, per-SM clkdiv, capture/replay. UART / SPI / I2C / JTAG / USB LS bit-layer TX are firmware, not hard IP.
 
-Apache-2.0. Tree started from [ttihp-verilog-template](https://github.com/TinyTapeout/ttihp-verilog-template.git). This GitHub remote is a private working copy, not the Tiny Tapeout template.
+Apache-2.0. Tree started from [ttihp-verilog-template](https://github.com/TinyTapeout/ttihp-verilog-template.git). This is the contest working copy, not the Tiny Tapeout template.
 
 ## What is actually green
 
-See `docs/STATUS.md`. Short version: Phase 5 is ticked. CMOS5L 6×4 GDS + UART 0x55 GLS + precheck passed on GHA; STA closes at 25 ns / 40 MHz. Anish confirmed 6×4 until they ship 8×4.
+See `docs/STATUS.md`. Short version: Phase 6 USB LS bit-layer TX is ticked on the Phase 5 die. CMOS5L 6×4 GDS + UART 0x55 GLS + precheck passed on GHA; STA closes at 25 ns / 40 MHz. Anish confirmed 6×4 until they ship 8×4.
 
 ## Quick check
 
@@ -30,7 +30,7 @@ A character leaves `uio[0]`. That is the week-1 gate (Verilog SM). Hardcaml Cycl
 |---|---|
 | `ISA.md` | Frozen 16-bit encoding |
 | `src/` | TT wrapper, one SM (SM1 generate-off), host, no SRAM on the die |
-| `fw/` | UART TX / frame RX, SPI 4 modes + JEDEC, I2C master, JTAG IDCODE; SWD/PS2/USB LS pin-dances |
+| `fw/` | UART TX / frame RX, SPI 4 modes + JEDEC, I2C master, JTAG IDCODE, USB LS bit-layer TX; SWD/PS2 pin-dances |
 | `sim/` | Python golden, SAT-on-decode, `check.sh` |
 | `ocaml/` | OCaml ISA + SAT + UART-ops golden (fallback) |
 | `formal/` | SymbiYosys field-split + opcode-step |

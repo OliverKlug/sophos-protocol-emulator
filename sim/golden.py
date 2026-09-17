@@ -7,6 +7,7 @@ from isa import decode_fields
 
 PC_MASK = 31
 IMEM_WORDS = 32
+CAP_DEPTH = 32  # RTL freeze cap_wptr != 32; all 32 slots are live.
 
 
 class Sm:
@@ -266,8 +267,10 @@ class Core:
         self.uio_in = 0
         self.capture = []
         self.cap_en = False
+        self.cap_mode = 0
         self.last_pins = 0
-        self.delta = 0
+        self.last_oe = 0
+        self.last_sclk = 0
 
     def load(self, words, base=0):
         for i, w in enumerate(words):
@@ -307,14 +310,26 @@ class Core:
             self.irq |= 1 << self.sm1.irq_set
         if self.sm1 is not None and self.sm1.irq_clr is not None:
             self.irq &= ~(1 << self.sm1.irq_clr)
-        if self.cap_en:
+        if self.cap_en and len(self.capture) < CAP_DEPTH:
             pins = driven | (self.uio_in & ~oe)
-            if pins != self.last_pins or self.delta == 255:
-                self.capture.append((self.delta, pins, oe))
+            if self.cap_mode:
+                sclk = (pins >> 1) & 1
+                cs = (pins >> 3) & 1
+                if cs == 0 and self.last_sclk == 0 and sclk == 1:
+                    self.capture.append((1, pins, oe))
+                elif self.capture:
+                    hold, prev_pins, prev_oe = self.capture[-1]
+                    if hold < 255:
+                        self.capture[-1] = (hold + 1, prev_pins, prev_oe)
+                self.last_sclk = sclk
+            elif not self.capture or pins != self.last_pins or oe != self.last_oe:
+                self.capture.append((1, pins, oe))
                 self.last_pins = pins
-                self.delta = 0
+                self.last_oe = oe
             else:
-                self.delta += 1
+                hold, prev_pins, prev_oe = self.capture[-1]
+                if hold < 255:
+                    self.capture[-1] = (hold + 1, prev_pins, prev_oe)
         return resolved, oe
 
     def replay_pins(self) -> list[int]:

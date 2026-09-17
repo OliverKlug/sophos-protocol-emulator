@@ -25,8 +25,8 @@ import test_jtag_idcode  # noqa: E402
 import test_spi_jedec  # noqa: E402
 import test_uart_rx_jitter  # noqa: E402
 import uart_rx  # noqa: E402
+import test_usb_ls  # noqa: E402
 import uart_tx  # noqa: E402
-import usb_ls  # noqa: E402
 
 
 def hunt_uart_frame(pins: list[int], byte: int) -> list[int] | None:
@@ -54,12 +54,10 @@ def sample_uart_tx(byte: int = 0x55) -> list[int]:
 
 
 def expand_capture(records, first=0) -> list[int]:
+    _ = first
     stream = []
-    pins = first
-    for delta, new_pins, _oe in records:
-        stream.extend([pins] * delta)
-        stream.append(new_pins)
-        pins = new_pins
+    for hold, pins, _oe in records:
+        stream.extend([pins] * hold)
     return stream
 
 
@@ -200,11 +198,10 @@ def test_baud_clkdiv() -> None:
         raise AssertionError(f"clkdiv=2 did not stretch the frame {a} vs {b}")
 
 
-def test_swd_ps2_usb_are_programs() -> None:
+def test_swd_ps2_are_programs() -> None:
     for name, prog in (
         ("swd", swd.program()),
         ("ps2", ps2.program()),
-        ("usb_ls", usb_ls.program()),
     ):
         if not prog:
             raise AssertionError(name)
@@ -369,7 +366,8 @@ def main() -> None:
     test_spi_jedec.main()
     test_jtag_idcode.main()
     test_baud_clkdiv()
-    test_swd_ps2_usb_are_programs()
+    test_swd_ps2_are_programs()
+    test_usb_ls.main()
     test_pinoe_one_beat()
     test_two_identical_sms()
     test_in_out_count()
@@ -380,6 +378,9 @@ def main() -> None:
     test_uart_tb_words()
     test_status_word()
     test_one_cycle_nop()
+    import test_cap  # noqa: E402
+
+    test_cap.main()
     print("golden+SAT: UART TX/RX replay 0xB5, frame RX jitter, SPI MOSI+JEDEC MISO,")
     print("I2C slave stretch/NACK/Sr, JTAG IDCODE, WAIT/side-set/clkdiv/SAT OK")
 

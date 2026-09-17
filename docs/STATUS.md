@@ -43,18 +43,20 @@ Checked locally, 2026-09-15. Same CMOS5L 6×4 die as Phase 2 (`PROTOEMU_SM1=0`).
 - Icarus `test/tb_jtag.v`: `PASS JTAG IDCODE` vs a TAP model (`0x1234ABCD`). The old `len(prog)>=4` cartoon is retired.
 - Python: I2C wired-AND slave (ACK, NACK→STOP, stretch 1 bit / 1 byte, repeated START, OD monitor on the resolved bus). UART frame RX ±0/2/5% baud, ±1 tick jitter, runt, bad stop / break recover. SPI `fw/spi_jedec.py` + `sim/flash_miso.py`.
 
-Named skip, no board: FT232 UART, physical W25Q, OpenOCD. SWD / PS/2 / USB LS stay unlabeled pin-dances. Gate-level vector stays UART 0x55; SPI/I2C stay Icarus RTL. Two SMs are not on this GDS.
+Named skip, no board: FT232 UART, physical W25Q, OpenOCD. SWD / PS/2 stay unlabeled pin-dances. Gate-level vector stays UART 0x55; SPI/I2C/USB stay Icarus RTL. Two SMs are not on this GDS.
 
 ## Phase 4 — capture / replay
 
-Checked:
+Checked locally, 2026-09-17. RTL in `protoemu_core.v`. No new GDS yet. January binary stays `8e4ef83` until GHA 25 ns green.
 
-- UART TX capture → RX replay (host bit-reverses the left-shifted ISR).
-- Capture expand keeps start+8 data.
-- Halted SM0: pin changes move capture wptr only.
-- Icarus peek mux (PC).
+- 32 live slots, packed `{pin, oe, hold}`. Hold-this, saturate at 255, no overflow writes. `cap_mode=0` pin/OE change; `cap_mode=1` SCLK rise while CS low (peek 15 from shifter[0]).
+- Python: `CAP UART 0x55 wptr=12`. `CAP SPI mode0 8 MOSI=0xa5`. `CAP JEDEC 0x9F wptr=32 ID=EF 40 16`.
+- Icarus `test/tb_cap.v`: `PASS UART CAP`, `PASS CAP dump` (peek 11–13), `PASS CAP timed replay`.
+- Icarus `test/tb_spi_cap.v`: `PASS SPI CAP replay` (edge mode).
+- Icarus `test/tb_jedec_cap.v`: `PASS JEDEC CAP`.
+- Generic Yosys `sim/synth.ys`: 9994 cells (was 7830). Extra is the 32×24 flop file, not a second async port (that path was 19k and was killed).
 
-Not checked: RTL capture dump vs golden lockstep on the host nibble.
+GLS dump is in `test.test_uart_0x55` (still `TESTS=1`). New GDS not signed off.
 
 ## Phase 5 — FPGA / GLS / STA
 
@@ -69,9 +71,16 @@ Viewer failed: private Pages 404, then duplicate `github-pages` artifact on reru
 
 Named skip: FPGA (`fpga.yaml` `branches: none`, action tag `@ihp-cmos5l`), Verilator protocol twin, SDF GLS, SPI/I2C in `test.py`, two SMs, Hardcaml SEC.
 
-## Phase 6 — stretch
+## Phase 6 — USB LS bit-layer TX
 
-USB LS-shaped firmware exists. No analog PHY. Not a HID demo.
+Checked locally, 2026-09-16. Same Phase 5 die (`8e4ef83`). No RTL, no GDS, no USB in `test.py`.
+
+- Python `sim/test_usb_ls.py`: `USB LS SYNC+NRZI+stuff+EOP OK`. Host `encode_packet()`: SYNC `0x80`, NRZI+stuff (incl. last-1-before-EOP), CRC-16/USB low-byte-first (DATA0+FF `C3 FF 00 FF`, DATA0+00 `C3 00 40 BF`, empty `C3 00 00`). Destuff-by-delete. PID complement rejects `D3`. No NAK encode. SM 4 words, FIFO streamed (never empty mid-packet in the golden).
+- Icarus `test/tb_usb.v`: `PASS USB LS` (ACK, DATA0+FF, DATA0+00). Bit-centre sample of D+/D−. clkdiv INT=8 so `fifo_push` (~15 clk) cannot starve a 3-tick bit. `./sim/check.sh` prints `check.sh OK`.
+
+Not a device, not HID, not FS/HS, not a hub clock. LS function rate is 1.5 Mbps ±1.5% (`TLDRATE`). INT=27 FRAC=0 is −1.23% on that table. PHY off-chip. D−=`uio[0]`, D+=`uio[1]`.
+
+Named skip: FPGA HID (`fpga.yaml` `branches: none`), 6.5-bit turnaround, CAN/ETH/FAULT, chirp, keep-alive/SOF/PRE, GLS USB, CRC opcode, host NAK.
 
 ## Deliverables
 

@@ -5,7 +5,8 @@
 `endif
 
 // One SM on the CMOS5L 6x4 die. SM1 is generate-off (PROTOEMU_SM1).
-// 32 x 16 flop IMEM (Yosys generic >8k at 64). Capture is 16 shadow records, no SRAM macro.
+// 32 x 16 flop IMEM (Yosys generic >8k at 64). Capture is 32 x 24 flop
+// {pin,oe,hold}, no SRAM macro.
 module protoemu_core #(
     parameter SM1 = `PROTOEMU_SM1
 ) (
@@ -18,7 +19,8 @@ module protoemu_core #(
     output wire [7:0]  uio_oe
 );
     localparam integer IMEM_WORDS = 32;
-    localparam integer CAP_DEPTH  = 16;
+    localparam integer CAP_DEPTH  = 32;
+    localparam integer WPTR_W     = 6;
 
     reg [15:0] imem [0:IMEM_WORDS-1];
     reg [4:0]  host_addr;
@@ -29,10 +31,13 @@ module protoemu_core #(
     reg [15:0] div0_int, div1_int;
     reg [7:0]  div0_frac, div1_frac;
     reg [3:0]  peek_sel;
-    reg [3:0]  cap_wptr;
-    reg [7:0]  last_pins;
-    reg [7:0]  last_oe;
-    reg [7:0]  delta_cnt;
+    reg [WPTR_W-1:0] cap_wptr;
+    reg        cap_mode;
+    reg        last_sclk;
+    reg [4:0]  dump_idx;
+    reg [4:0]  replay_idx;
+    reg [7:0]  hold_cnt;
+    reg [23:0] dump_q;
 
     wire strobe = ui_in[7];
     wire strobe_rise = strobe & ~strobe_q;
@@ -76,15 +81,34 @@ module protoemu_core #(
     wire [7:0] pin_resolved = (poe0 | poe1) & (pout1 | (pout0 & ~poe1))
                             | (~(poe0 | poe1) & uio_in);
 
-    reg [7:0] cap_pin_mem [0:CAP_DEPTH-1];
-    reg [7:0] cap_oe_mem [0:CAP_DEPTH-1];
-    reg [3:0] replay_idx;
-    reg [7:0] replay_hold_pins;
-    reg [7:0] replay_hold_oe;
+    // 1W1R packed file. [23:16] pins, [15:8] oe, [7:0] inclusive hold.
+    // Current record lives in flops; RAM write only on commit (new event or halt).
+    reg [23:0] cap_mem [0:CAP_DEPTH-1];
+    reg        cur_valid;
+    reg [7:0]  cur_pins, cur_oe, cur_hold;
+    reg        replay_first;
+    wire [4:0] cap_raddr;
+    wire cap_replay_strobe = strobe_rise && (cmd == 3'd5) && nib[3];
+    wire cap_more = ({1'b0, replay_idx} + 1'b1 < cap_wptr);
+    wire cap_adv = replay_en && cap_more
+                 && ((replay_first && dump_q[7:0] <= 8'd1)
+                     || (!replay_first && hold_cnt <= 8'd1));
+    assign cap_raddr = (replay_en || cap_replay_strobe)
+                     ? (cap_replay_strobe ? 5'd0
+                        : (cap_adv ? (replay_idx + 5'd1) : replay_idx))
+                     : dump_idx;
+    wire cap_sclk_rise = !pin_resolved[3] && pin_resolved[1] && !last_sclk;
+    wire cap_edge_evt = !cur_valid || (pin_resolved != cur_pins) || (uio_oe != cur_oe);
+    wire cap_new_evt = cap_mode ? cap_sclk_rise : cap_edge_evt;
+    wire cap_room = cap_wptr != CAP_DEPTH[WPTR_W-1:0];
+    wire cap_halt_c = strobe_rise && (cmd == 3'd5) && !nib[2] && cap_en && cur_valid
+                    && cap_room;
+    wire cap_run_c = cap_en && !replay_en && !cap_halt_c && cur_valid && cap_new_evt
+                   && cap_room;
 
-    assign uio_out = replay_en ? replay_hold_pins
+    assign uio_out = replay_en ? dump_q[23:16]
                    : ((pout1 & poe1) | (pout0 & poe0 & ~poe1));
-    assign uio_oe  = replay_en ? replay_hold_oe : (poe0 | poe1);
+    assign uio_oe  = replay_en ? dump_q[15:8] : (poe0 | poe1);
 
     protoemu_sm u_sm0 (
         .clk(clk), .rst_n(rst_n), .start(start0), .tick(tick0),
@@ -163,20 +187,21 @@ module protoemu_core #(
             host_rx0_pop <= 1'b0;
             host_fifo_data <= 16'd0;
             irq_flags <= 8'd0;
-            cap_wptr <= 4'd0;
-            last_pins <= 8'd0;
-            last_oe <= 8'd0;
-            delta_cnt <= 8'd0;
-            replay_idx <= 4'd0;
-            replay_hold_pins <= 8'd0;
-            replay_hold_oe <= 8'd0;
+            cap_wptr <= {WPTR_W{1'b0}};
+            cap_mode <= 1'b0;
+            last_sclk <= 1'b0;
+            dump_idx <= 5'd0;
+            replay_idx <= 5'd0;
+            hold_cnt <= 8'd0;
+            dump_q <= 24'd0;
+            cur_valid <= 1'b0;
+            cur_pins <= 8'd0;
+            cur_oe <= 8'd0;
+            cur_hold <= 8'd0;
+            replay_first <= 1'b0;
             uo_out <= 8'd0;
             for (i = 0; i < IMEM_WORDS; i = i + 1)
                 imem[i] <= 16'd0;
-            for (i = 0; i < CAP_DEPTH; i = i + 1) begin
-                cap_pin_mem[i] <= 8'd0;
-                cap_oe_mem[i] <= 8'd0;
-            end
         end else begin
             strobe_q <= strobe;
             host_fifo0 <= 1'b0;
@@ -209,8 +234,20 @@ module protoemu_core #(
                         cap_en    <= nib[2];
                         replay_en <= nib[3];
                         if (nib[2]) begin
-                            cap_wptr <= 4'd0;
-                            delta_cnt <= 8'd0;
+                            cap_wptr <= {WPTR_W{1'b0}};
+                            dump_idx <= 5'd0;
+                            replay_idx <= 5'd0;
+                            cur_valid <= 1'b0;
+                        end
+                        if (nib[3]) begin
+                            replay_idx <= 5'd0;
+                            replay_first <= 1'b1;
+                            hold_cnt <= 8'd0;
+                        end
+                        if (!nib[2] && cap_en && cur_valid
+                                && cap_wptr != CAP_DEPTH[WPTR_W-1:0]) begin
+                            cap_wptr <= cap_wptr + 1'b1;
+                            cur_valid <= 1'b0;
                         end
                     end
                     3'd6: begin
@@ -226,30 +263,62 @@ module protoemu_core #(
                         peek_sel <= nib;
                         if (nib == 4'd10)
                             host_rx0_pop <= 1'b1;
+                        if (nib == 4'd14 && !replay_en)
+                            dump_idx <= dump_idx + 5'd1;
+                        if (nib == 4'd15) begin
+                            dump_idx <= 5'd0;
+                            cap_mode <= shifter[0];
+                        end
                     end
                 endcase
             end
 
-            if (cap_en && cap_wptr != 4'd15 && !replay_en) begin
-                if ((pin_resolved != last_pins) || (uio_oe != last_oe) || (delta_cnt == 8'hFF)) begin
-                    cap_pin_mem[cap_wptr] <= pin_resolved;
-                    cap_oe_mem[cap_wptr] <= uio_oe;
-                    last_pins <= pin_resolved;
-                    last_oe <= uio_oe;
-                    delta_cnt <= 8'd0;
-                    cap_wptr <= cap_wptr + 4'd1;
-                end else begin
-                    delta_cnt <= delta_cnt + 8'd1;
-                end
+            dump_q <= cap_mem[cap_raddr];
+            last_sclk <= pin_resolved[1];
+            if (cap_halt_c || cap_run_c)
+                cap_mem[cap_wptr[4:0]] <= {cur_pins, cur_oe, cur_hold};
+
+            if (cap_en && !replay_en
+                    && !(strobe_rise && cmd == 3'd5 && !nib[2])) begin
+                if (cap_new_evt) begin
+                    if (cur_valid && cap_room) begin
+                        cap_wptr <= cap_wptr + 1'b1;
+                        if (cap_wptr != 6'd31) begin
+                            cur_pins <= pin_resolved;
+                            cur_oe <= uio_oe;
+                            cur_hold <= 8'd1;
+                        end else
+                            cur_valid <= 1'b0;
+                    end else if (!cur_valid && cap_room) begin
+                        cur_valid <= 1'b1;
+                        cur_pins <= pin_resolved;
+                        cur_oe <= uio_oe;
+                        cur_hold <= 8'd1;
+                    end
+                end else if (cur_valid && cur_hold != 8'hFF)
+                    cur_hold <= cur_hold + 8'd1;
             end
 
-            if (replay_en) begin
-                replay_hold_pins <= cap_pin_mem[replay_idx];
-                replay_hold_oe <= cap_oe_mem[replay_idx];
-                if (replay_idx + 4'd1 < cap_wptr)
-                    replay_idx <= replay_idx + 4'd1;
-            end else
-                replay_idx <= 4'd0;
+            if (replay_en && !cap_replay_strobe) begin
+                if (replay_first) begin
+                    if (dump_q[7:0] <= 8'd1) begin
+                        if (cap_more)
+                            replay_idx <= replay_idx + 5'd1;
+                        else begin
+                            replay_first <= 1'b0;
+                            hold_cnt <= 8'd1;
+                        end
+                    end else begin
+                        replay_first <= 1'b0;
+                        hold_cnt <= dump_q[7:0] - 8'd1;
+                    end
+                end else if (hold_cnt > 8'd1)
+                    hold_cnt <= hold_cnt - 8'd1;
+                else if (cap_more) begin
+                    replay_idx <= replay_idx + 5'd1;
+                    replay_first <= 1'b1;
+                end
+            end
 
             case (peek_now)
                 4'd0: uo_out <= {3'b000, pc0[4:0]};
@@ -258,11 +327,14 @@ module protoemu_core #(
                 4'd3: uo_out <= isr0[7:0];
                 4'd4: uo_out <= osr0[7:0];
                 4'd5: uo_out <= {rx0_lvl, tx0_lvl[2:0], rx0_empty, tx0_empty};
-                4'd6: uo_out <= {4'd0, cap_wptr};
+                4'd6: uo_out <= {2'b00, cap_wptr};
                 4'd7: uo_out <= pin_resolved;
                 4'd8: uo_out <= pc1;
                 4'd9: uo_out <= x1[7:0];
                 4'd10: uo_out <= rx0_rdata[7:0];
+                4'd11: uo_out <= dump_q[23:16];
+                4'd12: uo_out <= dump_q[15:8];
+                4'd13: uo_out <= dump_q[7:0];
                 default: uo_out <= pin_resolved;
             endcase
         end

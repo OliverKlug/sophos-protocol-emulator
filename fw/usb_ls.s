@@ -1,8 +1,7 @@
-; USB LS-shaped TX. NRZI-ish on pin0, SE0-ish pause. Not a PHY. No chirp.
-set     pindirs, 3
+; USB LS bit-layer TX. Host pushes encode_packet() PINOE words.
+; D-=pin0 D+=pin1. side_pin=7 so PULL does not smash D+.
+; EOP and HiZ live in the FIFO stream, not a SET delay.
+set     side_pin, 7
 pull    block
-set     x, 7
-out     pins, 1  delay 3
-jmp     x--, $-1
-set     pins, 0  delay 7
+out     pinoe, 16
 jmp     pull

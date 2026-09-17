@@ -56,3 +56,15 @@ task start0;
         host(3'd5, 4'b0001);
     end
 endtask
+
+task start0_cap;
+    begin
+        host(3'd5, 4'b0101);
+    end
+endtask
+
+task replay0;
+    begin
+        host(3'd5, 4'b1000);
+    end
+endtask

@@ -14,6 +14,12 @@ rtl test/tb_uart.vvp test/tb_uart.v
 rtl test/tb_uart_rx.vvp test/tb_uart_rx.v
 rtl test/tb_spi.vvp test/tb_spi.v
 rtl test/tb_jtag.vvp test/tb_jtag.v
+PYTHONPATH=sim python3 fw/usb_ls.py --vh test/usb_pkts.vh
+rtl test/tb_usb.vvp test/tb_usb.v
+python3 sim/test_cap.py
+rtl test/tb_cap.vvp test/tb_cap.v
+rtl test/tb_spi_cap.vvp test/tb_spi_cap.v
+rtl test/tb_jedec_cap.vvp test/tb_jedec_cap.v
 rtl test/tb_three_proto.vvp test/tb_three_proto.v
 
 python3 sim/lockstep.py

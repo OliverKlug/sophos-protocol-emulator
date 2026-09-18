@@ -21,7 +21,7 @@ Host protocol lives on `ui_in`: nibble + 3-bit cmd + rising strobe. `uio[7:0]` a
 
 SPI master modes 0-3, SPI JEDEC MISO (`test/tb_spi.v`), I2C stretch/ACK vs a slave model, and JTAG IDCODE (`test/tb_jtag.v`) are other programs in `fw/`. USB LS is host-encoded bit-layer TX (`fw/usb_ls.py`, `test/tb_usb.v`, `PASS USB LS`): NRZI+stuff+EOP+CRC-16/USB on D−/D+, not a device, not HID, not FS. SWD and PS/2 are pin-dances. Same silicon. No board: no FT232, physical W25Q, or OpenOCD.
 
-Golden + SAT: `python3 sim/test_all.py`. Full local stack: `./sim/check.sh` (adds OCaml and SBY when installed). Honest phase ticks: `docs/STATUS.md`.
+Golden + SAT: `python3 sim/test_all.py`. Full local stack: `./sim/check.sh` (adds OCaml and SBY when installed). Closed SHA and skips: `docs/STATUS.md`. Brief map: `docs/CRITERIA.md`.
 
 ## External hardware
 
